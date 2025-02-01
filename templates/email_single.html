@@ -4,9 +4,9 @@
     <div class="email-timestamp">{{ email.received_at.strftime('%a, %b %d, %Y - %I:%M%p') }}</div>
 </div>
 <div class="preview-content">
-    {% if email.html_content %}
-        <iframe srcdoc="{{ email.html_content|safe }}" frameborder="0" style="width: 100%; min-height: 600px; border: none;"></iframe>
+    {% if email.body_html %}
+        <iframe srcdoc="{{ email.body_html|safe }}"></iframe>
     {% else %}
-        <pre style="white-space: pre-wrap;">{{ email.body_text }}</pre>
+        <pre style="white-space: pre-wrap; padding: 1.5rem;">{{ email.body_text }}</pre>
     {% endif %}
 </div>
