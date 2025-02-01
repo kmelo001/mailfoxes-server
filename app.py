@@ -76,7 +76,8 @@ def home():
 @app.route('/parse-email', methods=['POST'])
 def parse_email():
     print("==== Incoming SendGrid Parsed Email ====")
-    print(request.form)
+    print("Form data:", request.form)
+    print("HTML content:", request.form.get('html', ''))
 
     try:
         # Get parsed email fields from SendGrid
@@ -85,6 +86,9 @@ def parse_email():
         subject = request.form.get('subject', '')
         text_body = request.form.get('text', '')
         html_body = request.form.get('html', '')
+        
+        print(f"HTML Length: {len(html_body)}")
+        print(f"First 100 chars of HTML: {html_body[:100]}")
         
         # Extract URLs (can get from either text or HTML)
         urls = extract_urls(text_body) if text_body else extract_urls(html_body)
