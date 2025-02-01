@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from datetime import datetime
 import os
 import re
@@ -8,7 +8,7 @@ from email.parser import Parser
 
 app = Flask(__name__)
 
-# Database connection
+# Database connection: Make sure your DATABASE_URL environment variable is set.
 def get_db_connection():
     conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
     return conn
@@ -34,7 +34,7 @@ def init_db():
 
 def extract_urls(text):
     """Extract URLs from text or HTML using a regex."""
-    url_pattern = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+    url_pattern = r'http[s]?://(?:[a-zA-Z0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
     return re.findall(url_pattern, text)
 
 @app.route('/')
@@ -53,7 +53,6 @@ def parse_email():
 
         # 2) Parse the raw MIME into a Python email object
         if not raw_email.strip():
-            # If there's nothing in 'email', return early or store an empty message
             print("No raw email data found in request.")
             return 'No raw email data', 400
 
@@ -67,15 +66,14 @@ def parse_email():
         for part in parsed_email.walk():
             content_type = part.get_content_type()
             if content_type == "text/plain":
-                # Decode the payload in case it's Base64 or quoted-printable
                 text_body += part.get_payload(decode=True).decode(errors='replace')
             elif content_type == "text/html":
                 html_body += part.get_payload(decode=True).decode(errors='replace')
 
-        # Decide which body to store (plain text if available, otherwise HTML)
+        # Choose plain text if available; otherwise, use HTML
         email_body = text_body.strip() if text_body.strip() else html_body.strip()
 
-        # 4) Extract URLs from whichever body we’re using
+        # 4) Extract URLs from the chosen body
         urls = extract_urls(email_body)
 
         # 5) Insert into the database
@@ -105,7 +103,7 @@ def parse_email():
 
 @app.route('/emails', methods=['GET'])
 def view_emails():
-    """View all received emails"""
+    """View all received emails as JSON."""
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=DictCursor)
@@ -117,6 +115,23 @@ def view_emails():
         # Convert rows to dictionaries
         emails_list = [dict(email) for email in emails]
         return jsonify(emails_list)
+
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return str(e), 500
+
+@app.route('/emails/view', methods=['GET'])
+def view_emails_html():
+    """Render a user-friendly HTML page displaying the received emails."""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=DictCursor)
+        cur.execute('SELECT * FROM emails ORDER BY received_at DESC')
+        emails = cur.fetchall()
+        cur.close()
+        conn.close()
+
+        return render_template('emails.html', emails=emails)
 
     except Exception as e:
         print(f"Error: {str(e)}")
