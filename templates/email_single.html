@@ -5,10 +5,18 @@
 </div>
 <div class="preview-content">
     {% if email.body_html %}
-        {{ email.body_html|safe }}
+        <div style="padding: 1.5rem;">
+            <!-- HTML Content -->
+            {{ email.body_html|safe }}
+        </div>
+    {% elif email.body_text %}
+        <div style="padding: 1.5rem;">
+            <!-- Text Content -->
+            <pre style="white-space: pre-wrap;">{{ email.body_text }}</pre>
+        </div>
     {% else %}
         <div style="padding: 1.5rem;">
-            <pre style="white-space: pre-wrap;">{{ email.body_text }}</pre>
+            <p>No content available</p>
         </div>
     {% endif %}
 </div>
