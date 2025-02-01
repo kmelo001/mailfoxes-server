@@ -37,17 +37,16 @@
         .email-list {
             width: 450px;
             border-right: 1px solid #e9ecef;
-            overflow-y: auto;
             background: white;
+            overflow-y: auto;
             display: flex;
             flex-direction: column;
         }
 
         .email-preview {
             flex: 1;
-            overflow-y: auto;
             background: #f8f9fa;
-            padding: 2rem;
+            overflow-y: auto;
         }
 
         .filters {
@@ -67,10 +66,9 @@
         }
 
         .email-card {
-            border-bottom: 1px solid #e9ecef;
             padding: 1.5rem;
+            border-bottom: 1px solid #e9ecef;
             cursor: pointer;
-            background: white;
         }
 
         .email-card:hover {
@@ -82,15 +80,13 @@
         }
 
         .email-header {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
             margin-bottom: 1rem;
         }
 
         .email-sender {
             font-size: 0.875rem;
             color: #666;
+            margin-bottom: 0.25rem;
         }
 
         .email-timestamp {
@@ -100,9 +96,9 @@
 
         .email-subject {
             font-size: 1rem;
-            font-weight: 500;
             color: #333;
             margin-bottom: 1rem;
+            font-weight: 500;
         }
 
         .email-metrics {
@@ -136,16 +132,6 @@
             margin-top: 1rem;
         }
 
-        .share-link {
-            width: 100%;
-            padding: 0.5rem;
-            border: 1px solid #e9ecef;
-            border-radius: 4px;
-            font-size: 0.875rem;
-            color: #666;
-            margin-bottom: 0.5rem;
-        }
-
         .social-buttons {
             display: flex;
             gap: 0.5rem;
@@ -167,9 +153,18 @@
         .linkedin { background: #0077b5; }
 
         .preview-container {
+            padding: 2rem;
+            height: 100%;
+        }
+
+        #preview-content {
             background: white;
             border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            height: 100%;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
         }
 
         .preview-header {
@@ -183,20 +178,14 @@
         }
 
         .preview-content {
-            padding: 1.5rem;
+            flex: 1;
+            overflow: auto;
         }
 
         .preview-content iframe {
             width: 100%;
-            min-height: 600px;
+            height: 100%;
             border: none;
-            background: white;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 3rem;
-            color: #666;
         }
     </style>
 </head>
@@ -249,7 +238,6 @@
                 </div>
 
                 <div class="share-section">
-                    <input type="text" class="share-link" value="{{ email.share_url }}" readonly>
                     <div class="social-buttons">
                         <a href="#" class="social-button twitter">
                             <i class="fab fa-twitter"></i> Tweet
@@ -268,28 +256,23 @@
 
         <div class="email-preview">
             <div class="preview-container">
-                {% if emails %}
-                    {% set first_email = emails[0] %}
-                    <div id="preview-content">
+                <div id="preview-content">
+                    {% if emails %}
+                        {% set first_email = emails[0] %}
                         <div class="preview-header">
                             <h2>{{ first_email.subject }}</h2>
                             <div class="email-sender">From: {{ first_email.from_address }}</div>
                             <div class="email-timestamp">{{ first_email.received_at.strftime('%a, %b %d, %Y - %I:%M%p') }}</div>
                         </div>
                         <div class="preview-content">
-                            {% if first_email.html_content %}
-                                <iframe srcdoc="{{ first_email.html_content|safe }}" frameborder="0"></iframe>
+                            {% if first_email.body_html %}
+                                <iframe srcdoc="{{ first_email.body_html|safe }}"></iframe>
                             {% else %}
-                                <pre style="white-space: pre-wrap;">{{ first_email.body_text }}</pre>
+                                <pre style="white-space: pre-wrap; padding: 1.5rem;">{{ first_email.body_text }}</pre>
                             {% endif %}
                         </div>
-                    </div>
-                {% else %}
-                    <div class="empty-state">
-                        <h3>No emails to display</h3>
-                        <p>Emails will appear here once they are received.</p>
-                    </div>
-                {% endif %}
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
@@ -310,15 +293,6 @@
             })
             .catch(error => console.error('Error:', error));
     }
-
-    // Preserve filter parameters when changing any single filter
-    document.querySelectorAll('.select').forEach(select => {
-        select.addEventListener('change', (e) => {
-            const params = new URLSearchParams(window.location.search);
-            params.set(e.target.name, e.target.value);
-            window.location.href = `?${params.toString()}`;
-        });
-    });
     </script>
 </body>
 </html>
