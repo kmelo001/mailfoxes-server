@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, Response
 from datetime import datetime
 import os
 import re
@@ -6,6 +6,7 @@ import psycopg2
 from psycopg2.extras import DictCursor
 from email.parser import Parser
 from urllib.parse import urlparse
+import json
 
 app = Flask(__name__)
 
@@ -38,13 +39,27 @@ def extract_urls(text):
     url_pattern = r'http[s]?://(?:[a-zA-Z0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
     return re.findall(url_pattern, text)
 
+def process_email_data(email_dict):
+    """Process email data to add computed fields."""
+    if isinstance(email_dict['received_at'], str):
+        email_dict['received_at'] = datetime.strptime(email_dict['received_at'], '%Y-%m-%d %H:%M:%S.%f')
+    
+    # Add computed fields
+    email_dict['subject_length'] = len(email_dict['subject']) if email_dict['subject'] else 0
+    email_dict['word_count'] = len(email_dict['body_text'].split()) if email_dict['body_text'] else 0
+    email_dict['link_count'] = len(email_dict['urls']) if email_dict['urls'] else 0
+    
+    # Generate a share URL
+    email_dict['share_url'] = f"/emails/view/{email_dict['id']}"
+    
+    return email_dict
+
 @app.route('/')
 def home():
-    return 'Mailfoxes Email Server is Running!'
+    return redirect('/emails/view')
 
 @app.route('/parse-email', methods=['POST'])
 def parse_email():
-    # Debug: Print the entire form posted by SendGrid
     print("==== Incoming SendGrid Form ====")
     print(request.form)
 
@@ -83,6 +98,7 @@ def parse_email():
         cur.execute('''
             INSERT INTO emails (to_address, from_address, subject, body_text, urls, received_at)
             VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING id
         ''', (
             parsed_email["to"],
             parsed_email["from"],
@@ -91,16 +107,17 @@ def parse_email():
             urls,
             datetime.now()
         ))
+        new_id = cur.fetchone()[0]
         conn.commit()
         cur.close()
         conn.close()
 
         print(f"Received email: {parsed_email['subject']}")
-        return 'OK', 200
+        return jsonify({"status": "success", "id": new_id}), 200
 
     except Exception as e:
         print(f"Error: {str(e)}")
-        return str(e), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/emails', methods=['GET'])
 def view_emails():
@@ -113,17 +130,17 @@ def view_emails():
         cur.close()
         conn.close()
 
-        # Convert rows to dictionaries
-        emails_list = [dict(email) for email in emails]
+        # Convert rows to dictionaries and process
+        emails_list = [process_email_data(dict(email)) for email in emails]
         return jsonify(emails_list)
 
     except Exception as e:
         print(f"Error: {str(e)}")
-        return str(e), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
 
-@app.route('/emails/view', methods=['GET'])
+@app.route('/emails/view')
 def view_emails_html():
-    """Render a user-friendly HTML page displaying the received emails."""
+    """Render the main email dashboard."""
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=DictCursor)
@@ -131,47 +148,44 @@ def view_emails_html():
         # Add sorting parameters
         sort = request.args.get('sort', 'newest')
         limit = request.args.get('limit', '10')
+        time_filter = request.args.get('time', 'all')
         
-        # Base query with dynamic sorting
-        if sort == 'oldest':
-            order_by = 'ASC'
-        else:
-            order_by = 'DESC'
-            
-        cur.execute(f'SELECT * FROM emails ORDER BY received_at {order_by} LIMIT %s', (limit,))
+        # Base query with dynamic sorting and filtering
+        query = 'SELECT * FROM emails'
+        params = []
+        
+        # Add time filter
+        if time_filter == 'week':
+            query += ' WHERE received_at >= NOW() - INTERVAL \'7 days\''
+        elif time_filter == 'month':
+            query += ' WHERE received_at >= NOW() - INTERVAL \'30 days\''
+        
+        # Add sorting
+        query += ' ORDER BY received_at ' + ('DESC' if sort == 'newest' else 'ASC')
+        
+        # Add limit
+        query += ' LIMIT %s'
+        params.append(int(limit))
+        
+        cur.execute(query, params)
         emails = cur.fetchall()
         cur.close()
         conn.close()
 
-        # Convert rows to list of dicts and add computed fields
-        emails_list = []
-        for email in emails:
-            email_dict = dict(email)
-            
-            # Ensure received_at is a datetime object
-            if isinstance(email_dict['received_at'], str):
-                email_dict['received_at'] = datetime.strptime(email_dict['received_at'], '%Y-%m-%d %H:%M:%S.%f')
-            
-            # Add computed fields
-            email_dict['subject_length'] = len(email_dict['subject']) if email_dict['subject'] else 0
-            email_dict['word_count'] = len(email_dict['body_text'].split()) if email_dict['body_text'] else 0
-            email_dict['link_count'] = len(email_dict['urls']) if email_dict['urls'] else 0
-            
-            # Generate a share URL
-            email_dict['share_url'] = request.url_root + f"emails/view?id={email_dict['id']}"
-            
-            emails_list.append(email_dict)
+        # Convert rows to list of dicts and process
+        emails_list = [process_email_data(dict(email)) for email in emails]
 
         return render_template('emails.html', 
                              emails=emails_list,
                              current_sort=sort,
-                             current_limit=limit)
+                             current_limit=limit,
+                             current_time=time_filter)
 
     except Exception as e:
         print(f"Error: {str(e)}")
         return str(e), 500
 
-@app.route('/emails/view/<int:email_id>', methods=['GET'])
+@app.route('/emails/view/<int:email_id>')
 def view_single_email(email_id):
     """Render a single email view."""
     try:
@@ -185,11 +199,14 @@ def view_single_email(email_id):
         if email is None:
             return "Email not found", 404
 
-        email_dict = dict(email)
-        if isinstance(email_dict['received_at'], str):
-            email_dict['received_at'] = datetime.strptime(email_dict['received_at'], '%Y-%m-%d %H:%M:%S.%f')
-
-        return render_template('email_single.html', email=email_dict)
+        email_dict = process_email_data(dict(email))
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            # If AJAX request, return just the email content
+            return render_template('email_single.html', email=email_dict)
+        else:
+            # If direct request, return full page
+            return render_template('emails.html', emails=[email_dict])
 
     except Exception as e:
         print(f"Error: {str(e)}")
@@ -200,4 +217,4 @@ init_db()
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=port, debug=True)
