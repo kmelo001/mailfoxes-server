@@ -4,86 +4,9 @@ import os
 import re
 import psycopg2
 from psycopg2.extras import DictCursor
-from email.parser import Parser
-from email.policy import default
-from email.utils import parseaddr
-from email.header import decode_header
-import base64
-import quopri
-from urllib.parse import urlparse
 import json
 
 app = Flask(__name__)
-
-def get_html_from_raw_email(raw_email):
-    """Extract HTML content from raw email."""
-    try:
-        # Parse the raw email
-        parsed_email = Parser(policy=default).parsestr(raw_email)
-        
-        # Look for HTML content
-        html_content = []
-        
-        if parsed_email.is_multipart():
-            for part in parsed_email.walk():
-                if part.get_content_type() == 'text/html':
-                    content = part.get_payload(decode=True)
-                    charset = part.get_content_charset() or 'utf-8'
-                    try:
-                        decoded_content = content.decode(charset)
-                        html_content.append(decoded_content)
-                    except:
-                        decoded_content = content.decode('utf-8', 'ignore')
-                        html_content.append(decoded_content)
-        else:
-            if parsed_email.get_content_type() == 'text/html':
-                content = parsed_email.get_payload(decode=True)
-                charset = parsed_email.get_content_charset() or 'utf-8'
-                try:
-                    decoded_content = content.decode(charset)
-                    html_content.append(decoded_content)
-                except:
-                    decoded_content = content.decode('utf-8', 'ignore')
-                    html_content.append(decoded_content)
-                    
-        return '\n'.join(html_content) if html_content else None
-    except Exception as e:
-        print(f"Error extracting HTML: {e}")
-        return None
-
-def decode_email_subject(subject):
-    """Decode email subject that might be encoded."""
-    if not subject:
-        return ""
-    decoded_parts = []
-    for part, charset in decode_header(subject):
-        if isinstance(part, bytes):
-            try:
-                if charset:
-                    decoded_parts.append(part.decode(charset))
-                else:
-                    decoded_parts.append(part.decode())
-            except:
-                decoded_parts.append(part.decode('utf-8', 'ignore'))
-        else:
-            decoded_parts.append(part)
-    return ' '.join(decoded_parts)
-
-def decode_email_body(part):
-    """Decode email body parts properly."""
-    content = part.get_payload(decode=True)
-    charset = part.get_content_charset()
-    
-    if charset:
-        try:
-            return content.decode(charset)
-        except:
-            return content.decode('utf-8', 'ignore')
-    
-    try:
-        return content.decode()
-    except:
-        return content.decode('utf-8', 'ignore')
 
 def get_db_connection():
     conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
@@ -93,7 +16,7 @@ def init_db():
     conn = get_db_connection()
     cur = conn.cursor()
     
-    # First create the table if it doesn't exist
+    # Create table with HTML content column
     cur.execute('''
         CREATE TABLE IF NOT EXISTS emails (
             id SERIAL PRIMARY KEY,
@@ -101,26 +24,11 @@ def init_db():
             from_address TEXT,
             subject TEXT,
             body_text TEXT,
+            body_html TEXT,
             urls TEXT[],
-            received_at TIMESTAMP,
-            raw_email TEXT
+            received_at TIMESTAMP
         );
     ''')
-    
-    # Check if raw_email column exists
-    cur.execute("""
-        SELECT column_name 
-        FROM information_schema.columns 
-        WHERE table_name='emails' AND column_name='raw_email';
-    """)
-    
-    # Add raw_email column if it doesn't exist
-    if cur.fetchone() is None:
-        try:
-            cur.execute('ALTER TABLE emails ADD COLUMN raw_email TEXT;')
-            print("Added raw_email column to emails table")
-        except Exception as e:
-            print(f"Error adding raw_email column: {e}")
     
     conn.commit()
     cur.close()
@@ -128,6 +36,8 @@ def init_db():
 
 def extract_urls(text):
     """Extract URLs from text or HTML using a regex."""
+    if not text:
+        return []
     url_pattern = r'http[s]?://(?:[a-zA-Z0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
     return re.findall(url_pattern, text)
 
@@ -150,71 +60,36 @@ def home():
 
 @app.route('/parse-email', methods=['POST'])
 def parse_email():
-    print("==== Incoming SendGrid Form ====")
+    print("==== Incoming SendGrid Parsed Email ====")
     print(request.form)
 
     try:
-        # Get raw email
-        raw_email = request.form.get('email', '')
-        if not raw_email.strip():
-            print("No raw email data found in request.")
-            return 'No raw email data', 400
-
-        # Parse with policy=default for better MIME handling
-        parsed_email = Parser(policy=default).parsestr(raw_email)
-
-        # Extract and decode subject
-        subject = decode_email_subject(parsed_email['subject'])
-
-        # Extract addresses
-        to_addr = parseaddr(parsed_email['to'])[1]
-        from_addr = parseaddr(parsed_email['from'])[1]
-
-        # Extract body
-        text_body = []
-        html_body = []
-
-        def extract_body(message):
-            if message.is_multipart():
-                for part in message.walk():
-                    if part.is_multipart():
-                        continue
-                    if part.get_content_maintype() == 'text':
-                        if part.get_content_subtype() == 'plain':
-                            text_body.append(decode_email_body(part))
-                        elif part.get_content_subtype() == 'html':
-                            html_body.append(decode_email_body(part))
-            else:
-                content_type = message.get_content_type()
-                if content_type == 'text/plain':
-                    text_body.append(decode_email_body(message))
-                elif content_type == 'text/html':
-                    html_body.append(decode_email_body(message))
-
-        extract_body(parsed_email)
+        # Get parsed email fields from SendGrid
+        to_addr = request.form.get('to', '')
+        from_addr = request.form.get('from', '')
+        subject = request.form.get('subject', '')
+        text_body = request.form.get('text', '')
+        html_body = request.form.get('html', '')
         
-        # Choose plain text if available; otherwise, use HTML
-        email_body = '\n'.join(text_body) if text_body else '\n'.join(html_body)
-        
-        # Extract URLs
-        urls = extract_urls(email_body)
+        # Extract URLs (can get from either text or HTML)
+        urls = extract_urls(text_body) if text_body else extract_urls(html_body)
 
         # Insert into database
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute('''
             INSERT INTO emails (
-                to_address, from_address, subject, body_text, urls, received_at, raw_email
+                to_address, from_address, subject, body_text, body_html, urls, received_at
             ) VALUES (%s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         ''', (
             to_addr,
             from_addr,
             subject,
-            email_body,
+            text_body,
+            html_body,
             urls,
-            datetime.now(),
-            raw_email  # Store the raw email
+            datetime.now()
         ))
         new_id = cur.fetchone()[0]
         conn.commit()
@@ -301,10 +176,6 @@ def view_single_email(email_id):
             return "Email not found", 404
 
         email_dict = process_email_data(dict(email))
-        
-        # Extract HTML content if we have raw email
-        if email_dict.get('raw_email'):
-            email_dict['html_content'] = get_html_from_raw_email(email_dict['raw_email'])
         
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return render_template('email_single.html', email=email_dict)
