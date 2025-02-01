@@ -5,8 +5,10 @@
 </div>
 <div class="preview-content">
     {% if email.body_html %}
-        <iframe srcdoc="{{ email.body_html|safe }}"></iframe>
+        {{ email.body_html|safe }}
     {% else %}
-        <pre style="white-space: pre-wrap; padding: 1.5rem;">{{ email.body_text }}</pre>
+        <div style="padding: 1.5rem;">
+            <pre style="white-space: pre-wrap;">{{ email.body_text }}</pre>
+        </div>
     {% endif %}
 </div>
