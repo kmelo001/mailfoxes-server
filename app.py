@@ -16,7 +16,10 @@ def init_db():
     conn = get_db_connection()
     cur = conn.cursor()
     
-    # First create the table if it doesn't exist
+    # Drop the existing table to start fresh
+    cur.execute('DROP TABLE IF EXISTS emails')
+    
+    # Create new table with proper columns
     cur.execute('''
         CREATE TABLE IF NOT EXISTS emails (
             id SERIAL PRIMARY KEY,
@@ -29,21 +32,6 @@ def init_db():
             received_at TIMESTAMP
         );
     ''')
-    
-    # Check if body_html column exists
-    cur.execute("""
-        SELECT column_name 
-        FROM information_schema.columns 
-        WHERE table_name='emails' AND column_name='body_html';
-    """)
-    
-    # Add body_html column if it doesn't exist
-    if cur.fetchone() is None:
-        try:
-            cur.execute('ALTER TABLE emails ADD COLUMN body_html TEXT;')
-            print("Added body_html column to emails table")
-        except Exception as e:
-            print(f"Error adding body_html column: {e}")
     
     conn.commit()
     cur.close()
@@ -76,21 +64,17 @@ def home():
 @app.route('/parse-email', methods=['POST'])
 def parse_email():
     print("==== Incoming SendGrid Parsed Email ====")
-    print("Form data:", request.form)
-    print("HTML content:", request.form.get('html', ''))
+    print("Form data:", dict(request.form))
 
     try:
-        # Get parsed email fields from SendGrid
+        # Get SendGrid's parsed fields
         to_addr = request.form.get('to', '')
         from_addr = request.form.get('from', '')
         subject = request.form.get('subject', '')
         text_body = request.form.get('text', '')
         html_body = request.form.get('html', '')
         
-        print(f"HTML Length: {len(html_body)}")
-        print(f"First 100 chars of HTML: {html_body[:100]}")
-        
-        # Extract URLs (can get from either text or HTML)
+        # Extract URLs from text content first, fall back to HTML if no text
         urls = extract_urls(text_body) if text_body else extract_urls(html_body)
 
         # Insert into database
@@ -115,11 +99,11 @@ def parse_email():
         cur.close()
         conn.close()
 
-        print(f"Received email: {subject}")
+        print(f"Processed email: {subject}")
         return jsonify({"status": "success", "id": new_id}), 200
 
     except Exception as e:
-        print(f"Error: {str(e)}")
+        print(f"Error processing email: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/emails', methods=['GET'])
@@ -205,6 +189,30 @@ def view_single_email(email_id):
         print(f"Error: {str(e)}")
         return str(e), 500
 
+@app.route('/debug-email/<int:email_id>')
+def debug_email(email_id):
+    """Debug endpoint to view raw email data."""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=DictCursor)
+        cur.execute('SELECT * FROM emails WHERE id = %s', (email_id,))
+        email = cur.fetchone()
+        cur.close()
+        conn.close()
+
+        if email:
+            email_dict = dict(email)
+            return {
+                'text': email_dict.get('body_text'),
+                'html': email_dict.get('body_html'),
+                'subject': email_dict.get('subject'),
+                'from': email_dict.get('from_address')
+            }
+        return {'error': 'Email not found'}
+    except Exception as e:
+        return {'error': str(e)}
+
+# Initialize the database when the app starts
 init_db()
 
 if __name__ == '__main__':
