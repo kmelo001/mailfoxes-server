@@ -1,53 +1,194 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Received Emails</title>
-  <!-- Bootstrap CSS for styling -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <meta charset="UTF-8">
+    <title>Email Analytics Dashboard</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: #f8f9fa;
+        }
+
+        .navbar {
+            background-color: white;
+            padding: 1rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .nav-brand {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .filters {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .select {
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+        }
+
+        .email-card {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            padding: 1.5rem;
+        }
+
+        .email-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .email-sender {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .email-title {
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+        }
+
+        .email-metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .metric {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 6px;
+        }
+
+        .metric-label {
+            font-size: 0.875rem;
+            color: #666;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-value {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .share-section {
+            border-top: 1px solid #e9ecef;
+            padding-top: 1rem;
+            margin-top: 1rem;
+        }
+
+        .share-link {
+            padding: 0.5rem;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            color: #666;
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+
+        .social-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .social-button {
+            padding: 0.5rem;
+            border-radius: 4px;
+            color: white;
+            text-decoration: none;
+            font-size: 0.875rem;
+        }
+
+        .twitter { background: #1da1f2; }
+        .facebook { background: #4267B2; }
+        .linkedin { background: #0077b5; }
+    </style>
 </head>
 <body>
-  <div class="container mt-4">
-    <h1 class="mb-4">Received Emails</h1>
-    <table class="table table-bordered table-striped">
-      <thead class="thead-dark">
-        <tr>
-          <th>ID</th>
-          <th>To</th>
-          <th>From</th>
-          <th>Subject</th>
-          <th>Body</th>
-          <th>URLs</th>
-          <th>Received At</th>
-        </tr>
-      </thead>
-      <tbody>
+    <nav class="navbar">
+        <div class="nav-brand">Email Analytics Dashboard</div>
+    </nav>
+    
+    <div class="container">
+        <div class="filters">
+            <select class="select">
+                <option>All Time</option>
+                <option>Last 7 days</option>
+                <option>Last 30 days</option>
+            </select>
+            <select class="select">
+                <option>Oldest First</option>
+                <option>Newest First</option>
+            </select>
+            <select class="select">
+                <option>Show 10</option>
+                <option>Show 25</option>
+                <option>Show 50</option>
+            </select>
+        </div>
+
         {% for email in emails %}
-        <tr>
-          <td>{{ email.id }}</td>
-          <td>{{ email.to_address }}</td>
-          <td>{{ email.from_address }}</td>
-          <td>{{ email.subject }}</td>
-          <td>
-            {{ email.body_text[:100] }}{% if email.body_text|length > 100 %}...{% endif %}
-          </td>
-          <td>
-            {% if email.urls %}
-              {% for url in email.urls %}
-                <a href="{{ url }}" target="_blank">{{ url }}</a><br>
-              {% endfor %}
-            {% else %}
-              No URLs
-            {% endif %}
-          </td>
-          <td>{{ email.received_at }}</td>
-        </tr>
+        <div class="email-card">
+            <div class="email-header">
+                <div class="email-sender">{{ email.from_address }}</div>
+                <div class="timestamp">{{ email.received_at.strftime('%a, %b %d, %Y - %I:%M%p') }}</div>
+            </div>
+            
+            <div class="email-title">{{ email.subject }}</div>
+            
+            <div class="email-metrics">
+                <div class="metric">
+                    <div class="metric-label">Subject Length</div>
+                    <div class="metric-value">{{ email.subject|length }}</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Word Count</div>
+                    <div class="metric-value">{{ email.body_text.split()|length }}</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Link Count</div>
+                    <div class="metric-value">{{ email.urls|length }}</div>
+                </div>
+            </div>
+
+            <div class="share-section">
+                <input type="text" class="share-link" value="https://dashboard/email/{{ email.id }}" readonly>
+                <div class="social-buttons">
+                    <a href="#" class="social-button twitter"><i class="fab fa-twitter"></i> Tweet</a>
+                    <a href="#" class="social-button facebook"><i class="fab fa-facebook-f"></i> Share</a>
+                    <a href="#" class="social-button linkedin"><i class="fab fa-linkedin-in"></i> Post</a>
+                </div>
+            </div>
+        </div>
         {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  <!-- Optional JavaScript for Bootstrap (jQuery and Bootstrap Bundle) -->
-  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+    </div>
 </body>
 </html>
