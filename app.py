@@ -15,6 +15,42 @@ import json
 
 app = Flask(__name__)
 
+def get_html_from_raw_email(raw_email):
+    """Extract HTML content from raw email."""
+    try:
+        # Parse the raw email
+        parsed_email = Parser(policy=default).parsestr(raw_email)
+        
+        # Look for HTML content
+        html_content = []
+        
+        if parsed_email.is_multipart():
+            for part in parsed_email.walk():
+                if part.get_content_type() == 'text/html':
+                    content = part.get_payload(decode=True)
+                    charset = part.get_content_charset() or 'utf-8'
+                    try:
+                        decoded_content = content.decode(charset)
+                        html_content.append(decoded_content)
+                    except:
+                        decoded_content = content.decode('utf-8', 'ignore')
+                        html_content.append(decoded_content)
+        else:
+            if parsed_email.get_content_type() == 'text/html':
+                content = parsed_email.get_payload(decode=True)
+                charset = parsed_email.get_content_charset() or 'utf-8'
+                try:
+                    decoded_content = content.decode(charset)
+                    html_content.append(decoded_content)
+                except:
+                    decoded_content = content.decode('utf-8', 'ignore')
+                    html_content.append(decoded_content)
+                    
+        return '\n'.join(html_content) if html_content else None
+    except Exception as e:
+        print(f"Error extracting HTML: {e}")
+        return None
+
 def decode_email_subject(subject):
     """Decode email subject that might be encoded."""
     if not subject:
@@ -265,6 +301,10 @@ def view_single_email(email_id):
             return "Email not found", 404
 
         email_dict = process_email_data(dict(email))
+        
+        # Extract HTML content if we have raw email
+        if email_dict.get('raw_email'):
+            email_dict['html_content'] = get_html_from_raw_email(email_dict['raw_email'])
         
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return render_template('email_single.html', email=email_dict)
