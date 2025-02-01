@@ -20,6 +20,9 @@
             background-color: white;
             padding: 1rem;
             border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .nav-brand {
@@ -28,16 +31,59 @@
             color: #333;
         }
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
+        .layout-container {
+            display: flex;
+            height: calc(100vh - 60px);
+        }
+
+        .sidebar {
+            width: 250px;
+            background: white;
+            border-right: 1px solid #e9ecef;
+            padding: 1rem;
+            overflow-y: auto;
+        }
+
+        .sidebar-item {
+            padding: 0.5rem;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .sidebar-item:hover {
+            background: #f8f9fa;
+        }
+
+        .sidebar-item.active {
+            background: #e9ecef;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .email-list {
+            width: 450px;
+            border-right: 1px solid #e9ecef;
+            overflow-y: auto;
+            background: white;
+        }
+
+        .email-preview {
+            flex: 1;
+            overflow-y: auto;
+            background: #f8f9fa;
             padding: 2rem;
         }
 
         .filters {
             display: flex;
             gap: 1rem;
-            margin-bottom: 2rem;
+            padding: 1rem;
+            background: white;
+            border-bottom: 1px solid #e9ecef;
         }
 
         .select {
@@ -49,10 +95,17 @@
 
         .email-card {
             background: white;
-            border: 1px solid #e9ecef;
-            border-radius: 8px;
-            margin-bottom: 1rem;
+            border-bottom: 1px solid #e9ecef;
             padding: 1.5rem;
+            cursor: pointer;
+        }
+
+        .email-card:hover {
+            background: #f8f9fa;
+        }
+
+        .email-card.active {
+            background: #e9ecef;
         }
 
         .email-header {
@@ -74,7 +127,7 @@
 
         .email-metrics {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            grid-template-columns: repeat(3, 1fr);
             gap: 1rem;
             margin-bottom: 1rem;
         }
@@ -120,16 +173,35 @@
         }
 
         .social-button {
-            padding: 0.5rem;
+            padding: 0.5rem 1rem;
             border-radius: 4px;
             color: white;
             text-decoration: none;
             font-size: 0.875rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
         .twitter { background: #1da1f2; }
         .facebook { background: #4267B2; }
         .linkedin { background: #0077b5; }
+
+        .preview-container {
+            background: white;
+            border-radius: 8px;
+            padding: 2rem;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .preview-header {
+            margin-bottom: 2rem;
+        }
+
+        .preview-content {
+            line-height: 1.6;
+        }
     </style>
 </head>
 <body>
@@ -137,58 +209,108 @@
         <div class="nav-brand">Email Analytics Dashboard</div>
     </nav>
     
-    <div class="container">
-        <div class="filters">
-            <select class="select">
-                <option>All Time</option>
-                <option>Last 7 days</option>
-                <option>Last 30 days</option>
-            </select>
-            <select class="select">
-                <option>Oldest First</option>
-                <option>Newest First</option>
-            </select>
-            <select class="select">
-                <option>Show 10</option>
-                <option>Show 25</option>
-                <option>Show 50</option>
-            </select>
+    <div class="layout-container">
+        <div class="sidebar">
+            <div class="sidebar-item active">All Emails</div>
+            <div class="sidebar-item">Sent</div>
+            <div class="sidebar-item">Drafts</div>
+            <div class="sidebar-item">Archived</div>
         </div>
 
-        {% for email in emails %}
-        <div class="email-card">
-            <div class="email-header">
-                <div class="email-sender">{{ email.from_address }}</div>
-                <div class="timestamp">{{ email.received_at.strftime('%a, %b %d, %Y - %I:%M%p') }}</div>
-            </div>
-            
-            <div class="email-title">{{ email.subject }}</div>
-            
-            <div class="email-metrics">
-                <div class="metric">
-                    <div class="metric-label">Subject Length</div>
-                    <div class="metric-value">{{ email.subject|length }}</div>
+        <div class="main-content">
+            <div class="email-list">
+                <div class="filters">
+                    <select class="select">
+                        <option>All Time</option>
+                        <option>Last 7 days</option>
+                        <option>Last 30 days</option>
+                    </select>
+                    <select class="select">
+                        <option>Oldest First</option>
+                        <option>Newest First</option>
+                    </select>
+                    <select class="select">
+                        <option>Show 10</option>
+                        <option>Show 25</option>
+                        <option>Show 50</option>
+                    </select>
                 </div>
-                <div class="metric">
-                    <div class="metric-label">Word Count</div>
-                    <div class="metric-value">{{ email.body_text.split()|length }}</div>
+
+                {% for email in emails %}
+                <div class="email-card {% if loop.first %}active{% endif %}" onclick="showPreview({{ email.id }})">
+                    <div class="email-header">
+                        <div class="email-sender">{{ email.from_address }}</div>
+                        <div class="timestamp">{{ email.received_at.strftime('%a, %b %d, %Y - %I:%M%p') }}</div>
+                    </div>
+                    
+                    <div class="email-title">{{ email.subject }}</div>
+                    
+                    <div class="email-metrics">
+                        <div class="metric">
+                            <div class="metric-label">Subject Length</div>
+                            <div class="metric-value">{{ email.subject|length }}</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">Word Count</div>
+                            <div class="metric-value">{{ email.body_text.split()|length }}</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">Link Count</div>
+                            <div class="metric-value">{{ email.urls|length }}</div>
+                        </div>
+                    </div>
+
+                    <div class="share-section">
+                        <input type="text" class="share-link" value="{{ email.share_url }}" readonly>
+                        <div class="social-buttons">
+                            <a href="#" class="social-button twitter">
+                                <i class="fab fa-twitter"></i> Tweet
+                            </a>
+                            <a href="#" class="social-button facebook">
+                                <i class="fab fa-facebook-f"></i> Share
+                            </a>
+                            <a href="#" class="social-button linkedin">
+                                <i class="fab fa-linkedin-in"></i> Post
+                            </a>
+                        </div>
+                    </div>
                 </div>
-                <div class="metric">
-                    <div class="metric-label">Link Count</div>
-                    <div class="metric-value">{{ email.urls|length }}</div>
-                </div>
+                {% endfor %}
             </div>
 
-            <div class="share-section">
-                <input type="text" class="share-link" value="https://dashboard/email/{{ email.id }}" readonly>
-                <div class="social-buttons">
-                    <a href="#" class="social-button twitter"><i class="fab fa-twitter"></i> Tweet</a>
-                    <a href="#" class="social-button facebook"><i class="fab fa-facebook-f"></i> Share</a>
-                    <a href="#" class="social-button linkedin"><i class="fab fa-linkedin-in"></i> Post</a>
+            <div class="email-preview">
+                <div class="preview-container">
+                    {% if emails %}
+                    {% set first_email = emails[0] %}
+                    <div class="preview-header">
+                        <h2>{{ first_email.subject }}</h2>
+                        <div class="email-sender">From: {{ first_email.from_address }}</div>
+                        <div class="timestamp">{{ first_email.received_at.strftime('%a, %b %d, %Y - %I:%M%p') }}</div>
+                    </div>
+                    <div class="preview-content">
+                        {{ first_email.body_text|safe }}
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
-        {% endfor %}
     </div>
+
+    <script>
+    function showPreview(emailId) {
+        // Add AJAX call to fetch and display email content
+        fetch(`/emails/view/${emailId}`)
+            .then(response => response.text())
+            .then(html => {
+                document.querySelector('.preview-container').innerHTML = html;
+                
+                // Update active state
+                document.querySelectorAll('.email-card').forEach(card => {
+                    card.classList.remove('active');
+                });
+                document.querySelector(`.email-card[onclick="showPreview(${emailId})"]`).classList.add('active');
+            });
+    }
+    </script>
 </body>
 </html>
