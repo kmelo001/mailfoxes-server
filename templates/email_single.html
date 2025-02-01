@@ -1,9 +1,14 @@
-<!-- email_single.html -->
 <div class="preview-header">
     <h2>{{ email.subject }}</h2>
     <div class="email-sender">From: {{ email.from_address }}</div>
     <div class="timestamp">{{ email.received_at.strftime('%a, %b %d, %Y - %I:%M%p') }}</div>
 </div>
 <div class="preview-content">
-    {{ email.body_text|safe }}
+    {% if email.html_content %}
+        <iframe srcdoc="{{ email.html_content|safe }}" 
+                style="width: 100%; height: 600px; border: none; background: white;">
+        </iframe>
+    {% else %}
+        <pre style="white-space: pre-wrap;">{{ email.body_text }}</pre>
+    {% endif %}
 </div>
