@@ -5,20 +5,59 @@ import re
 import psycopg2
 from psycopg2.extras import DictCursor
 from email.parser import Parser
+from email.policy import default
+from email.utils import parseaddr
+from email.header import decode_header
+import base64
+import quopri
 from urllib.parse import urlparse
 import json
 
 app = Flask(__name__)
 
-# Database connection
+def decode_email_subject(subject):
+    """Decode email subject that might be encoded."""
+    if not subject:
+        return ""
+    decoded_parts = []
+    for part, charset in decode_header(subject):
+        if isinstance(part, bytes):
+            try:
+                if charset:
+                    decoded_parts.append(part.decode(charset))
+                else:
+                    decoded_parts.append(part.decode())
+            except:
+                decoded_parts.append(part.decode('utf-8', 'ignore'))
+        else:
+            decoded_parts.append(part)
+    return ' '.join(decoded_parts)
+
+def decode_email_body(part):
+    """Decode email body parts properly."""
+    content = part.get_payload(decode=True)
+    charset = part.get_content_charset()
+    
+    if charset:
+        try:
+            return content.decode(charset)
+        except:
+            return content.decode('utf-8', 'ignore')
+    
+    try:
+        return content.decode()
+    except:
+        return content.decode('utf-8', 'ignore')
+
 def get_db_connection():
     conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
     return conn
 
-# Create table if it doesn't exist
 def init_db():
     conn = get_db_connection()
     cur = conn.cursor()
+    
+    # First create the table if it doesn't exist
     cur.execute('''
         CREATE TABLE IF NOT EXISTS emails (
             id SERIAL PRIMARY KEY,
@@ -27,9 +66,26 @@ def init_db():
             subject TEXT,
             body_text TEXT,
             urls TEXT[],
-            received_at TIMESTAMP
+            received_at TIMESTAMP,
+            raw_email TEXT
         );
     ''')
+    
+    # Check if raw_email column exists
+    cur.execute("""
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name='emails' AND column_name='raw_email';
+    """)
+    
+    # Add raw_email column if it doesn't exist
+    if cur.fetchone() is None:
+        try:
+            cur.execute('ALTER TABLE emails ADD COLUMN raw_email TEXT;')
+            print("Added raw_email column to emails table")
+        except Exception as e:
+            print(f"Error adding raw_email column: {e}")
+    
     conn.commit()
     cur.close()
     conn.close()
@@ -48,8 +104,6 @@ def process_email_data(email_dict):
     email_dict['subject_length'] = len(email_dict['subject']) if email_dict['subject'] else 0
     email_dict['word_count'] = len(email_dict['body_text'].split()) if email_dict['body_text'] else 0
     email_dict['link_count'] = len(email_dict['urls']) if email_dict['urls'] else 0
-    
-    # Generate a share URL
     email_dict['share_url'] = f"/emails/view/{email_dict['id']}"
     
     return email_dict
@@ -64,55 +118,74 @@ def parse_email():
     print(request.form)
 
     try:
-        # 1) Grab the full raw email from the form data
+        # Get raw email
         raw_email = request.form.get('email', '')
-
-        # 2) Parse the raw MIME into a Python email object
         if not raw_email.strip():
             print("No raw email data found in request.")
             return 'No raw email data', 400
 
-        parsed_email = Parser().parsestr(raw_email)
+        # Parse with policy=default for better MIME handling
+        parsed_email = Parser(policy=default).parsestr(raw_email)
 
-        # 3) Extract text/plain and text/html parts
-        text_body = ""
-        html_body = ""
+        # Extract and decode subject
+        subject = decode_email_subject(parsed_email['subject'])
 
-        # Walk through each MIME part
-        for part in parsed_email.walk():
-            content_type = part.get_content_type()
-            if content_type == "text/plain":
-                text_body += part.get_payload(decode=True).decode(errors='replace')
-            elif content_type == "text/html":
-                html_body += part.get_payload(decode=True).decode(errors='replace')
+        # Extract addresses
+        to_addr = parseaddr(parsed_email['to'])[1]
+        from_addr = parseaddr(parsed_email['from'])[1]
 
+        # Extract body
+        text_body = []
+        html_body = []
+
+        def extract_body(message):
+            if message.is_multipart():
+                for part in message.walk():
+                    if part.is_multipart():
+                        continue
+                    if part.get_content_maintype() == 'text':
+                        if part.get_content_subtype() == 'plain':
+                            text_body.append(decode_email_body(part))
+                        elif part.get_content_subtype() == 'html':
+                            html_body.append(decode_email_body(part))
+            else:
+                content_type = message.get_content_type()
+                if content_type == 'text/plain':
+                    text_body.append(decode_email_body(message))
+                elif content_type == 'text/html':
+                    html_body.append(decode_email_body(message))
+
+        extract_body(parsed_email)
+        
         # Choose plain text if available; otherwise, use HTML
-        email_body = text_body.strip() if text_body.strip() else html_body.strip()
-
-        # 4) Extract URLs from the chosen body
+        email_body = '\n'.join(text_body) if text_body else '\n'.join(html_body)
+        
+        # Extract URLs
         urls = extract_urls(email_body)
 
-        # 5) Insert into the database
+        # Insert into database
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute('''
-            INSERT INTO emails (to_address, from_address, subject, body_text, urls, received_at)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            INSERT INTO emails (
+                to_address, from_address, subject, body_text, urls, received_at, raw_email
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         ''', (
-            parsed_email["to"],
-            parsed_email["from"],
-            parsed_email["subject"],
+            to_addr,
+            from_addr,
+            subject,
             email_body,
             urls,
-            datetime.now()
+            datetime.now(),
+            raw_email  # Store the raw email
         ))
         new_id = cur.fetchone()[0]
         conn.commit()
         cur.close()
         conn.close()
 
-        print(f"Received email: {parsed_email['subject']}")
+        print(f"Received email: {subject}")
         return jsonify({"status": "success", "id": new_id}), 200
 
     except Exception as e:
@@ -130,7 +203,6 @@ def view_emails():
         cur.close()
         conn.close()
 
-        # Convert rows to dictionaries and process
         emails_list = [process_email_data(dict(email)) for email in emails]
         return jsonify(emails_list)
 
@@ -145,25 +217,19 @@ def view_emails_html():
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=DictCursor)
         
-        # Add sorting parameters
         sort = request.args.get('sort', 'newest')
         limit = request.args.get('limit', '10')
         time_filter = request.args.get('time', 'all')
         
-        # Base query with dynamic sorting and filtering
         query = 'SELECT * FROM emails'
         params = []
         
-        # Add time filter
         if time_filter == 'week':
             query += ' WHERE received_at >= NOW() - INTERVAL \'7 days\''
         elif time_filter == 'month':
             query += ' WHERE received_at >= NOW() - INTERVAL \'30 days\''
         
-        # Add sorting
         query += ' ORDER BY received_at ' + ('DESC' if sort == 'newest' else 'ASC')
-        
-        # Add limit
         query += ' LIMIT %s'
         params.append(int(limit))
         
@@ -172,7 +238,6 @@ def view_emails_html():
         cur.close()
         conn.close()
 
-        # Convert rows to list of dicts and process
         emails_list = [process_email_data(dict(email)) for email in emails]
 
         return render_template('emails.html', 
@@ -202,17 +267,14 @@ def view_single_email(email_id):
         email_dict = process_email_data(dict(email))
         
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            # If AJAX request, return just the email content
             return render_template('email_single.html', email=email_dict)
         else:
-            # If direct request, return full page
             return render_template('emails.html', emails=[email_dict])
 
     except Exception as e:
         print(f"Error: {str(e)}")
         return str(e), 500
 
-# Initialize the database when the app starts
 init_db()
 
 if __name__ == '__main__':
