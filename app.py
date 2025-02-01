@@ -5,10 +5,11 @@ import re
 import psycopg2
 from psycopg2.extras import DictCursor
 from email.parser import Parser
+from urllib.parse import urlparse
 
 app = Flask(__name__)
 
-# Database connection: Make sure your DATABASE_URL environment variable is set.
+# Database connection
 def get_db_connection():
     conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
     return conn
@@ -126,12 +127,69 @@ def view_emails_html():
     try:
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=DictCursor)
-        cur.execute('SELECT * FROM emails ORDER BY received_at DESC')
+        
+        # Add sorting parameters
+        sort = request.args.get('sort', 'newest')
+        limit = request.args.get('limit', '10')
+        
+        # Base query with dynamic sorting
+        if sort == 'oldest':
+            order_by = 'ASC'
+        else:
+            order_by = 'DESC'
+            
+        cur.execute(f'SELECT * FROM emails ORDER BY received_at {order_by} LIMIT %s', (limit,))
         emails = cur.fetchall()
         cur.close()
         conn.close()
 
-        return render_template('emails.html', emails=emails)
+        # Convert rows to list of dicts and add computed fields
+        emails_list = []
+        for email in emails:
+            email_dict = dict(email)
+            
+            # Ensure received_at is a datetime object
+            if isinstance(email_dict['received_at'], str):
+                email_dict['received_at'] = datetime.strptime(email_dict['received_at'], '%Y-%m-%d %H:%M:%S.%f')
+            
+            # Add computed fields
+            email_dict['subject_length'] = len(email_dict['subject']) if email_dict['subject'] else 0
+            email_dict['word_count'] = len(email_dict['body_text'].split()) if email_dict['body_text'] else 0
+            email_dict['link_count'] = len(email_dict['urls']) if email_dict['urls'] else 0
+            
+            # Generate a share URL
+            email_dict['share_url'] = request.url_root + f"emails/view?id={email_dict['id']}"
+            
+            emails_list.append(email_dict)
+
+        return render_template('emails.html', 
+                             emails=emails_list,
+                             current_sort=sort,
+                             current_limit=limit)
+
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return str(e), 500
+
+@app.route('/emails/view/<int:email_id>', methods=['GET'])
+def view_single_email(email_id):
+    """Render a single email view."""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=DictCursor)
+        cur.execute('SELECT * FROM emails WHERE id = %s', (email_id,))
+        email = cur.fetchone()
+        cur.close()
+        conn.close()
+
+        if email is None:
+            return "Email not found", 404
+
+        email_dict = dict(email)
+        if isinstance(email_dict['received_at'], str):
+            email_dict['received_at'] = datetime.strptime(email_dict['received_at'], '%Y-%m-%d %H:%M:%S.%f')
+
+        return render_template('email_single.html', email=email_dict)
 
     except Exception as e:
         print(f"Error: {str(e)}")
