@@ -4,6 +4,7 @@ import os
 import re
 import psycopg2
 from psycopg2.extras import DictCursor
+from email.parser import Parser
 
 app = Flask(__name__)
 
@@ -42,46 +43,62 @@ def home():
 
 @app.route('/parse-email', methods=['POST'])
 def parse_email():
-    # 1) Print the raw form data from SendGrid (for debugging)
+    # Debug: Print the entire form posted by SendGrid
     print("==== Incoming SendGrid Form ====")
     print(request.form)
 
     try:
-        # 2) Capture both plaintext and HTML parts
-        text_body = request.form.get('text', '')
-        html_body = request.form.get('html', '')
+        # 1) Grab the full raw email from the form data
+        raw_email = request.form.get('email', '')
 
-        # Decide which to use as the email body
-        if text_body:
-            email_body = text_body
-        else:
-            email_body = html_body
+        # 2) Parse the raw MIME into a Python email object
+        if not raw_email.strip():
+            # If there's nothing in 'email', return early or store an empty message
+            print("No raw email data found in request.")
+            return 'No raw email data', 400
 
-        # Extract URLs from whichever body we have
+        parsed_email = Parser().parsestr(raw_email)
+
+        # 3) Extract text/plain and text/html parts
+        text_body = ""
+        html_body = ""
+
+        # Walk through each MIME part
+        for part in parsed_email.walk():
+            content_type = part.get_content_type()
+            if content_type == "text/plain":
+                # Decode the payload in case it's Base64 or quoted-printable
+                text_body += part.get_payload(decode=True).decode(errors='replace')
+            elif content_type == "text/html":
+                html_body += part.get_payload(decode=True).decode(errors='replace')
+
+        # Decide which body to store (plain text if available, otherwise HTML)
+        email_body = text_body.strip() if text_body.strip() else html_body.strip()
+
+        # 4) Extract URLs from whichever body we’re using
         urls = extract_urls(email_body)
-        
-        # Insert into the database
+
+        # 5) Insert into the database
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute('''
             INSERT INTO emails (to_address, from_address, subject, body_text, urls, received_at)
             VALUES (%s, %s, %s, %s, %s, %s)
         ''', (
-            request.form.get('to', ''),
-            request.form.get('from', ''),
-            request.form.get('subject', ''),
+            parsed_email["to"],
+            parsed_email["from"],
+            parsed_email["subject"],
             email_body,
             urls,
             datetime.now()
         ))
-        
         conn.commit()
         cur.close()
         conn.close()
-        
-        print(f"Received email: {request.form.get('subject', '')}")
+
+        print(f"Received email: {parsed_email['subject']}")
         return 'OK', 200
-    
+
     except Exception as e:
         print(f"Error: {str(e)}")
         return str(e), 500
@@ -96,11 +113,11 @@ def view_emails():
         emails = cur.fetchall()
         cur.close()
         conn.close()
-        
+
         # Convert rows to dictionaries
         emails_list = [dict(email) for email in emails]
         return jsonify(emails_list)
-    
+
     except Exception as e:
         print(f"Error: {str(e)}")
         return str(e), 500
