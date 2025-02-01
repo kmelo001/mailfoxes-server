@@ -16,7 +16,7 @@ def init_db():
     conn = get_db_connection()
     cur = conn.cursor()
     
-    # Create table with HTML content column
+    # First create the table if it doesn't exist
     cur.execute('''
         CREATE TABLE IF NOT EXISTS emails (
             id SERIAL PRIMARY KEY,
@@ -29,6 +29,21 @@ def init_db():
             received_at TIMESTAMP
         );
     ''')
+    
+    # Check if body_html column exists
+    cur.execute("""
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name='emails' AND column_name='body_html';
+    """)
+    
+    # Add body_html column if it doesn't exist
+    if cur.fetchone() is None:
+        try:
+            cur.execute('ALTER TABLE emails ADD COLUMN body_html TEXT;')
+            print("Added body_html column to emails table")
+        except Exception as e:
+            print(f"Error adding body_html column: {e}")
     
     conn.commit()
     cur.close()
