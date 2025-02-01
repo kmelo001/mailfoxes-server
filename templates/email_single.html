@@ -5,15 +5,9 @@
 </div>
 <div class="preview-content">
     {% if email.body_html %}
-        <div style="padding: 1.5rem;">
-            <!-- HTML Content -->
-            {{ email.body_html|safe }}
-        </div>
+        <iframe srcdoc="{{ email.body_html|safe }}" style="width:100%; height:100%; border:none;"></iframe>
     {% elif email.body_text %}
-        <div style="padding: 1.5rem;">
-            <!-- Text Content -->
-            <pre style="white-space: pre-wrap;">{{ email.body_text }}</pre>
-        </div>
+        <pre style="white-space: pre-wrap; padding: 1.5rem;">{{ email.body_text }}</pre>
     {% else %}
         <div style="padding: 1.5rem;">
             <p>No content available</p>
