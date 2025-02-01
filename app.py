@@ -32,7 +32,7 @@ def init_db():
     conn.close()
 
 def extract_urls(text):
-    """Extract URLs from text using regex"""
+    """Extract URLs from text or HTML using a regex."""
     url_pattern = r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
     return re.findall(url_pattern, text)
 
@@ -42,14 +42,27 @@ def home():
 
 @app.route('/parse-email', methods=['POST'])
 def parse_email():
+    # 1) Print the raw form data from SendGrid (for debugging)
+    print("==== Incoming SendGrid Form ====")
+    print(request.form)
+
     try:
-        # Get email data from SendGrid
-        email_text = request.form.get('text', '')
-        urls = extract_urls(email_text)
+        # 2) Capture both plaintext and HTML parts
+        text_body = request.form.get('text', '')
+        html_body = request.form.get('html', '')
+
+        # Decide which to use as the email body
+        if text_body:
+            email_body = text_body
+        else:
+            email_body = html_body
+
+        # Extract URLs from whichever body we have
+        urls = extract_urls(email_body)
         
+        # Insert into the database
         conn = get_db_connection()
         cur = conn.cursor()
-        
         cur.execute('''
             INSERT INTO emails (to_address, from_address, subject, body_text, urls, received_at)
             VALUES (%s, %s, %s, %s, %s, %s)
@@ -57,7 +70,7 @@ def parse_email():
             request.form.get('to', ''),
             request.form.get('from', ''),
             request.form.get('subject', ''),
-            email_text,
+            email_body,
             urls,
             datetime.now()
         ))
