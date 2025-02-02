@@ -16,7 +16,7 @@ def init_db():
     conn = get_db_connection()
     cur = conn.cursor()
     
-    # Create new table with proper columns
+    # Create table only if it doesn't exist
     cur.execute('''
         CREATE TABLE IF NOT EXISTS emails (
             id SERIAL PRIMARY KEY,
@@ -71,6 +71,12 @@ def parse_email():
         text_body = request.form.get('text', '')
         html_body = request.form.get('html', '')
         
+        # For forwarded emails, prefer HTML as it contains the forwarding format
+        if html_body:
+            email_body = html_body
+        else:
+            email_body = text_body
+        
         # Extract URLs from text content first, fall back to HTML if no text
         urls = extract_urls(text_body) if text_body else extract_urls(html_body)
 
@@ -87,7 +93,7 @@ def parse_email():
             from_addr,
             subject,
             text_body,
-            html_body,
+            email_body,  # Store the HTML version which has the forwarding format
             urls,
             datetime.now()
         ))
@@ -177,10 +183,16 @@ def view_single_email(email_id):
 
         email_dict = process_email_data(dict(email))
         
+        # Only return the email content portion for AJAX requests
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return render_template('email_single.html', email=email_dict)
-        else:
-            return render_template('emails.html', emails=[email_dict])
+        
+        # For direct access, return the full page with just this email
+        return render_template('emails.html', 
+                             emails=[email_dict],
+                             current_sort='newest',
+                             current_limit='10',
+                             current_time='all')
 
     except Exception as e:
         print(f"Error: {str(e)}")
