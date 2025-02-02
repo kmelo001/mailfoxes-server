@@ -299,20 +299,20 @@
 
     <script>
     function showPreview(emailId) {
-        // Update active state
-        document.querySelectorAll('.email-card').forEach(card => {
-            card.classList.remove('active');
-        });
-        document.querySelector(`.email-card[onclick="showPreview(${emailId})"]`).classList.add('active');
-        
-        // Fetch and display email content
-        fetch(`/emails/view/${emailId}`)
-            .then(response => response.text())
-            .then(html => {
-                document.querySelector('.preview-content').innerHTML = html;
-            })
-            .catch(error => console.error('Error:', error));
-    }
+    // Update active state
+    document.querySelectorAll('.email-card').forEach(card => {
+        card.classList.remove('active');
+    });
+    document.querySelector(`.email-card[onclick="showPreview(${emailId})"]`).classList.add('active');
+    
+    // Fetch and display email content
+    fetch(`/emails/view/${emailId}`)
+        .then(response => response.text())
+        .then(html => {
+            document.getElementById('preview-content').innerHTML = html;
+        })
+        .catch(error => console.error('Error:', error));
+}
     </script>
 </body>
 </html>
