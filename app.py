@@ -21,7 +21,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS email_sources (
             id SERIAL PRIMARY KEY,
             name TEXT NOT NULL,
-            email_address TEXT NOT NULL,
+            email_address TEXT NOT NULL UNIQUE,
             description TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
@@ -40,6 +40,18 @@ def init_db():
             urls TEXT[],
             received_at TIMESTAMP
         );
+    ''')
+    
+    # Index on email_address for faster lookups
+    cur.execute('''
+        CREATE INDEX IF NOT EXISTS idx_sources_email 
+        ON email_sources(email_address);
+    ''')
+    
+    # Index on source_id and received_at for faster filtering
+    cur.execute('''
+        CREATE INDEX IF NOT EXISTS idx_emails_source_date 
+        ON emails(source_id, received_at DESC);
     ''')
     
     conn.commit()
@@ -70,29 +82,57 @@ def process_email_data(email_dict):
 def home():
     return redirect('/emails/view')
 
-@app.route('/sources', methods=['POST'])
+@app.route('/sources/add', methods=['POST'])
 def add_source():
     """Add a new email source."""
     try:
-        data = request.json
+        name = request.form.get('name')
+        email = request.form.get('email')
+        description = request.form.get('description')
+        
         conn = get_db_connection()
         cur = conn.cursor()
         
         cur.execute('''
             INSERT INTO email_sources (name, email_address, description)
             VALUES (%s, %s, %s)
+            ON CONFLICT (email_address) DO UPDATE 
+            SET name = EXCLUDED.name,
+                description = EXCLUDED.description
             RETURNING id
-        ''', (data['name'], data['email_address'], data.get('description')))
+        ''', (name, email, description))
         
         new_id = cur.fetchone()[0]
         conn.commit()
         cur.close()
         conn.close()
         
-        return jsonify({"status": "success", "id": new_id}), 200
+        return redirect('/emails/view')
         
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return str(e), 500
+
+@app.route('/sources/delete/<int:source_id>', methods=['POST'])
+def delete_source(source_id):
+    """Delete an email source."""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # First update emails to remove the source_id
+        cur.execute('UPDATE emails SET source_id = NULL WHERE source_id = %s', (source_id,))
+        
+        # Then delete the source
+        cur.execute('DELETE FROM email_sources WHERE id = %s', (source_id,))
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return redirect('/emails/view')
+        
+    except Exception as e:
+        return str(e), 500
 
 @app.route('/parse-email', methods=['POST'])
 def parse_email():
@@ -120,9 +160,19 @@ def parse_email():
         conn = get_db_connection()
         cur = conn.cursor()
         
+        # First check if we have a source for this email address
         cur.execute('SELECT id FROM email_sources WHERE email_address = %s', (to_addr,))
         source_result = cur.fetchone()
         source_id = source_result[0] if source_result else None
+        
+        # If no source exists, create one automatically
+        if not source_id:
+            cur.execute('''
+                INSERT INTO email_sources (name, email_address, description)
+                VALUES (%s, %s, %s)
+                RETURNING id
+            ''', (from_addr.split('@')[1], to_addr, f'Auto-created from {from_addr}'))
+            source_id = cur.fetchone()[0]
 
         # Insert into database
         cur.execute('''
@@ -150,24 +200,6 @@ def parse_email():
 
     except Exception as e:
         print(f"Error processing email: {str(e)}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/emails', methods=['GET'])
-def view_emails():
-    """View all received emails as JSON."""
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=DictCursor)
-        cur.execute('SELECT * FROM emails ORDER BY received_at DESC')
-        emails = cur.fetchall()
-        cur.close()
-        conn.close()
-
-        emails_list = [process_email_data(dict(email)) for email in emails]
-        return jsonify(emails_list)
-
-    except Exception as e:
-        print(f"Error: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/emails/view')
