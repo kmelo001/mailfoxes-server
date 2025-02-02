@@ -21,6 +21,9 @@
             background-color: white;
             padding: 1rem;
             border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         
         .nav-brand {
@@ -33,33 +36,66 @@
             display: flex;
             height: calc(100vh - 60px);
         }
-
+        
         .sources-sidebar {
-            width: 200px;
-            background: #f8f9fa;
+            width: 250px;
+            background: white;
             border-right: 1px solid #e9ecef;
-            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
         }
         
         .source-list {
             list-style: none;
             padding: 0;
             margin: 0;
+            overflow-y: auto;
+            flex: 1;
         }
         
         .source-item {
             padding: 12px 16px;
             border-bottom: 1px solid #e9ecef;
             cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         
         .source-item:hover {
-            background: #e9ecef;
+            background: #f8f9fa;
         }
         
         .source-item.active {
+            background: #e9ecef;
+        }
+        
+        .add-source-form {
+            padding: 1rem;
+            border-top: 1px solid #e9ecef;
+            background: white;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .form-button {
+            width: 100%;
+            padding: 0.5rem;
             background: #007bff;
             color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .form-button:hover {
+            background: #0056b3;
         }
         
         .main-content {
@@ -238,6 +274,18 @@
         .email-content a:hover {
             text-decoration: underline;
         }
+
+        .delete-source {
+            color: #dc3545;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .delete-source:hover {
+            background: #dc3545;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -246,30 +294,50 @@
     </nav>
     
     <div class="layout-container">
+        <!-- Sources Sidebar -->
         <div class="sources-sidebar">
             <ul class="source-list">
                 {% for source in sources %}
-                <li class="source-item {% if source.id == current_source %}active{% endif %}" 
-                    onclick="window.location.href='?source={{ source.id }}'">
-                    {{ source.name }}
+                <li class="source-item {% if source.id == current_source %}active{% endif %}">
+                    <a href="?source={{ source.id }}" style="color: inherit; text-decoration: none; flex: 1;">
+                        {{ source.name }}
+                        <div style="font-size: 0.75rem; color: #666;">{{ source.email_address }}</div>
+                    </a>
+                    <form action="/sources/delete/{{ source.id }}" method="POST" style="display: inline;">
+                        <button type="submit" class="delete-source" onclick="return confirm('Are you sure you want to delete this source?')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </form>
                 </li>
                 {% endfor %}
             </ul>
+            
+            <!-- Add Source Form -->
+            <div class="add-source-form">
+                <form action="/sources/add" method="POST">
+                    <input type="text" name="name" placeholder="Source Name" required class="form-input">
+                    <input type="email" name="email" placeholder="Monitor Email" required class="form-input">
+                    <textarea name="description" placeholder="Description" class="form-input"></textarea>
+                    <button type="submit" class="form-button">Add Source</button>
+                </form>
+            </div>
         </div>
         
+        <!-- Main Content -->
         <div class="main-content">
+            <!-- Email List -->
             <div class="email-list">
                 <div class="filters">
-                    <select class="select" onchange="window.location.href='?time=' + this.value">
+                    <select class="select" onchange="window.location.href='?source={{ current_source }}&time=' + this.value">
                         <option value="all" {% if current_time == 'all' %}selected{% endif %}>All Time</option>
                         <option value="week" {% if current_time == 'week' %}selected{% endif %}>Last 7 days</option>
                         <option value="month" {% if current_time == 'month' %}selected{% endif %}>Last 30 days</option>
                     </select>
-                    <select class="select" onchange="window.location.href='?sort=' + this.value">
+                    <select class="select" onchange="window.location.href='?source={{ current_source }}&sort=' + this.value">
                         <option value="newest" {% if current_sort == 'newest' %}selected{% endif %}>Newest First</option>
                         <option value="oldest" {% if current_sort == 'oldest' %}selected{% endif %}>Oldest First</option>
                     </select>
-                    <select class="select" onchange="window.location.href='?limit=' + this.value">
+                    <select class="select" onchange="window.location.href='?source={{ current_source }}&limit=' + this.value">
                         <option value="10" {% if current_limit == '10' %}selected{% endif %}>Show 10</option>
                         <option value="25" {% if current_limit == '25' %}selected{% endif %}>Show 25</option>
                         <option value="50" {% if current_limit == '50' %}selected{% endif %}>Show 50</option>
@@ -317,6 +385,7 @@
                 {% endfor %}
             </div>
             
+            <!-- Email Preview -->
             <div class="email-preview">
                 <div class="preview-container">
                     <div id="preview-content">
