@@ -170,7 +170,6 @@
         .preview-header {
             padding: 1.5rem;
             border-bottom: 1px solid #e9ecef;
-            background: white;
         }
 
         .preview-header h2 {
@@ -182,13 +181,11 @@
             flex: 1;
             overflow: auto;
             padding: 2rem;
-            background: white;
         }
 
         .email-content {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: inherit;
             line-height: 1.5;
-            color: #333;
         }
 
         .email-content img {
@@ -279,23 +276,21 @@
             <div class="preview-container">
                 <div id="preview-content">
                     {% if emails %}
-                        {% set first_email = emails[0] %}
-                        <div class="preview-header">
-                            <h2>{{ first_email.subject }}</h2>
-                            <div class="email-sender">From: {{ first_email.from_address }}</div>
-                            <div class="email-timestamp">{{ first_email.received_at.strftime('%a, %b %d, %Y - %I:%M%p') }}</div>
+                    {% set first_email = emails[0] %}
+                    <div class="preview-header">
+                        <h2>{{ first_email.subject }}</h2>
+                        <div class="email-sender">From: {{ first_email.from_address }}</div>
+                        <div class="email-timestamp">{{ first_email.received_at.strftime('%a, %b %d, %Y - %I:%M%p') }}</div>
+                    </div>
+                    <div class="preview-content">
+                        <div class="email-content">
+                        {% if first_email.body_html %}
+                            {{ first_email.body_html|safe }}
+                        {% else %}
+                            <pre style="white-space: pre-wrap;">{{ first_email.body_text }}</pre>
+                        {% endif %}
                         </div>
-                        <div class="preview-content">
-                            {% if first_email.body_html %}
-                                <div class="email-content">
-                                    {{ first_email.body_html|safe }}
-                                </div>
-                            {% else %}
-                                <div class="email-content">
-                                    <pre style="white-space: pre-wrap;">{{ first_email.body_text }}</pre>
-                                </div>
-                            {% endif %}
-                        </div>
+                    </div>
                     {% endif %}
                 </div>
             </div>
@@ -314,19 +309,10 @@
         fetch(`/emails/view/${emailId}`)
             .then(response => response.text())
             .then(html => {
-                document.getElementById('preview-content').innerHTML = html;
+                document.querySelector('.preview-content').innerHTML = html;
             })
             .catch(error => console.error('Error:', error));
     }
-
-    // Preserve filters when changing any single filter
-    document.querySelectorAll('.select').forEach(select => {
-        select.addEventListener('change', (e) => {
-            const params = new URLSearchParams(window.location.search);
-            params.set(e.target.name, e.target.value);
-            window.location.href = `?${params.toString()}`;
-        });
-    });
     </script>
 </body>
 </html>
