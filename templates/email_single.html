@@ -1,16 +1,9 @@
-<div class="preview-header">
-    <h2>{{ email.subject }}</h2>
-    <div class="email-sender">From: {{ email.from_address }}</div>
-    <div class="email-timestamp">{{ email.received_at.strftime('%a, %b %d, %Y - %I:%M%p') }}</div>
-</div>
-<div class="preview-content">
-    {% if email.body_html %}
+{% if email.body_html %}
     <div class="email-content">
         {{ email.body_html|safe }}
     </div>
-    {% else %}
+{% else %}
     <div class="email-content">
         <pre style="white-space: pre-wrap;">{{ email.body_text }}</pre>
     </div>
-    {% endif %}
-</div>
+{% endif %}
