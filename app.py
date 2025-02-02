@@ -16,10 +16,22 @@ def init_db():
     conn = get_db_connection()
     cur = conn.cursor()
     
-    # Create table only if it doesn't exist
+    # Create email_sources table
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS email_sources (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL,
+            email_address TEXT NOT NULL,
+            description TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    ''')
+    
+    # Create emails table with source_id
     cur.execute('''
         CREATE TABLE IF NOT EXISTS emails (
             id SERIAL PRIMARY KEY,
+            source_id INTEGER REFERENCES email_sources(id),
             to_address TEXT,
             from_address TEXT,
             subject TEXT,
@@ -58,6 +70,30 @@ def process_email_data(email_dict):
 def home():
     return redirect('/emails/view')
 
+@app.route('/sources', methods=['POST'])
+def add_source():
+    """Add a new email source."""
+    try:
+        data = request.json
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        cur.execute('''
+            INSERT INTO email_sources (name, email_address, description)
+            VALUES (%s, %s, %s)
+            RETURNING id
+        ''', (data['name'], data['email_address'], data.get('description')))
+        
+        new_id = cur.fetchone()[0]
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return jsonify({"status": "success", "id": new_id}), 200
+        
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route('/parse-email', methods=['POST'])
 def parse_email():
     print("==== Incoming SendGrid Parsed Email ====")
@@ -80,20 +116,27 @@ def parse_email():
         # Extract URLs from text content first, fall back to HTML if no text
         urls = extract_urls(text_body) if text_body else extract_urls(html_body)
 
-        # Insert into database
+        # Find the source based on the to_address
         conn = get_db_connection()
         cur = conn.cursor()
+        
+        cur.execute('SELECT id FROM email_sources WHERE email_address = %s', (to_addr,))
+        source_result = cur.fetchone()
+        source_id = source_result[0] if source_result else None
+
+        # Insert into database
         cur.execute('''
             INSERT INTO emails (
-                to_address, from_address, subject, body_text, body_html, urls, received_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                source_id, to_address, from_address, subject, body_text, body_html, urls, received_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         ''', (
+            source_id,
             to_addr,
             from_addr,
             subject,
             text_body,
-            email_body,  # Store the HTML version which has the forwarding format
+            email_body,
             urls,
             datetime.now()
         ))
@@ -134,6 +177,17 @@ def view_emails_html():
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=DictCursor)
         
+        # Get all sources
+        cur.execute('SELECT * FROM email_sources ORDER BY name')
+        sources = cur.fetchall()
+        
+        # Get current source from query params or default to first source
+        current_source = request.args.get('source')
+        if current_source:
+            current_source = int(current_source)
+        elif sources:
+            current_source = sources[0]['id']
+        
         sort = request.args.get('sort', 'newest')
         limit = request.args.get('limit', '10')
         time_filter = request.args.get('time', 'all')
@@ -141,10 +195,17 @@ def view_emails_html():
         query = 'SELECT * FROM emails'
         params = []
         
+        # Add source filter
+        if current_source:
+            query += ' WHERE source_id = %s'
+            params.append(current_source)
+        
         if time_filter == 'week':
-            query += ' WHERE received_at >= NOW() - INTERVAL \'7 days\''
+            query += ' AND ' if current_source else ' WHERE '
+            query += 'received_at >= NOW() - INTERVAL \'7 days\''
         elif time_filter == 'month':
-            query += ' WHERE received_at >= NOW() - INTERVAL \'30 days\''
+            query += ' AND ' if current_source else ' WHERE '
+            query += 'received_at >= NOW() - INTERVAL \'30 days\''
         
         query += ' ORDER BY received_at ' + ('DESC' if sort == 'newest' else 'ASC')
         query += ' LIMIT %s'
@@ -156,9 +217,12 @@ def view_emails_html():
         conn.close()
 
         emails_list = [process_email_data(dict(email)) for email in emails]
+        sources_list = [dict(source) for source in sources]
 
         return render_template('emails.html', 
                              emails=emails_list,
+                             sources=sources_list,
+                             current_source=current_source,
                              current_sort=sort,
                              current_limit=limit,
                              current_time=time_filter)
@@ -197,29 +261,6 @@ def view_single_email(email_id):
     except Exception as e:
         print(f"Error: {str(e)}")
         return str(e), 500
-
-@app.route('/debug-email/<int:email_id>')
-def debug_email(email_id):
-    """Debug endpoint to view raw email data."""
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor(cursor_factory=DictCursor)
-        cur.execute('SELECT * FROM emails WHERE id = %s', (email_id,))
-        email = cur.fetchone()
-        cur.close()
-        conn.close()
-
-        if email:
-            email_dict = dict(email)
-            return {
-                'text': email_dict.get('body_text'),
-                'html': email_dict.get('body_html'),
-                'subject': email_dict.get('subject'),
-                'from': email_dict.get('from_address')
-            }
-        return {'error': 'Email not found'}
-    except Exception as e:
-        return {'error': str(e)}
 
 # Initialize the database when the app starts
 init_db()
