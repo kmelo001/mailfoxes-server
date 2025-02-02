@@ -4,38 +4,58 @@
     <meta charset="UTF-8">
     <title>Email Analytics Dashboard</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Email Analytics Dashboard</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        /* Base styles remain the same */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
         }
         
         body {
-            background-color: #f8f9fa;
+            background-color: #ffffff;
             height: 100vh;
             overflow: hidden;
+            color: #1d1d1f;
         }
         
         .navbar {
-            background-color: white;
-            padding: 0.75rem 1rem;
-            border-bottom: 1px solid #e9ecef;
-            height: 48px;
+            background-color: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e5e5e5;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            position: relative;
+            z-index: 1000;
+        }
+        
+        .nav-brand {
+            font-size: 1.3rem;
+            font-weight: 500;
+            color: #1d1d1f;
+            letter-spacing: -0.02em;
         }
         
         .layout-container {
             display: flex;
-            height: calc(100vh - 48px);
+            height: calc(100vh - 60px);
+            background: #f5f5f7;
         }
 
-        /* Updated sidebar styles */
+        /* Refined sidebar styles */
         .sources-sidebar {
-            width: 240px;
-            background: white;
-            border-right: 1px solid #e9ecef;
+            width: 260px;
+            background: #ffffff;
+            border-right: 1px solid #e5e5e5;
             display: flex;
             flex-direction: column;
         }
@@ -43,40 +63,131 @@
         .source-list {
             flex: 1;
             overflow-y: auto;
-            padding-bottom: 1rem;
+            padding: 8px 0;
         }
         
         .source-item {
-            padding: 8px 16px;
+            padding: 10px 16px;
             cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-size: 0.875rem;
+            gap: 10px;
+            font-size: 0.9rem;
+            color: #1d1d1f;
+            margin: 2px 8px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
         }
         
-        /* Updated main content styles */
+        .source-item:hover {
+            background: #f5f5f7;
+        }
+        
+        .source-item.active {
+            background: #0071e3;
+            color: white;
+        }
+        
+        .source-item i {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        /* Elegant form styles */
+        .add-source-form {
+            padding: 1.5rem;
+            background: #ffffff;
+            border-top: 1px solid #e5e5e5;
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-group label {
+            display: block;
+            font-size: 0.8rem;
+            color: #6e6e73;
+            margin-bottom: 0.4rem;
+            font-weight: 500;
+        }
+        
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.7rem;
+            border: 1px solid #d2d2d7;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+            background: #f5f5f7;
+        }
+        
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #0071e3;
+            background: #ffffff;
+        }
+        
+        .submit-button {
+            width: 100%;
+            padding: 0.8rem;
+            background: #0071e3;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        
+        .submit-button:hover {
+            background: #0077ed;
+            transform: translateY(-1px);
+        }
+
+        /* Main content area */
         .main-content {
             display: flex;
             flex: 1;
-            overflow: hidden;
+            background: #ffffff;
         }
         
         .email-list {
-            width: 400px;
-            background: white;
-            border-right: 1px solid #e9ecef;
+            width: 380px;
+            background: #ffffff;
+            border-right: 1px solid #e5e5e5;
             display: flex;
             flex-direction: column;
         }
         
         .filters {
-            padding: 0.75rem;
-            background: white;
-            border-bottom: 1px solid #e9ecef;
+            padding: 1rem;
+            background: #ffffff;
+            border-bottom: 1px solid #e5e5e5;
             display: flex;
             gap: 0.5rem;
-            height: 54px;
+        }
+        
+        .select {
+            padding: 0.6rem;
+            border: 1px solid #d2d2d7;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            color: #1d1d1f;
+            background: #f5f5f7;
+            cursor: pointer;
+        }
+        
+        .select:focus {
+            outline: none;
+            border-color: #0071e3;
         }
         
         .email-cards-container {
@@ -84,78 +195,121 @@
             overflow-y: auto;
         }
         
+        .email-card {
+            padding: 1.2rem;
+            border-bottom: 1px solid #e5e5e5;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .email-card:hover {
+            background: #f5f5f7;
+        }
+        
+        .email-card.active {
+            background: #f5f5f7;
+            border-left: 3px solid #0071e3;
+        }
+        
+        .email-sender {
+            font-size: 0.9rem;
+            color: #1d1d1f;
+            margin-bottom: 0.3rem;
+            font-weight: 500;
+        }
+        
+        .email-timestamp {
+            font-size: 0.8rem;
+            color: #6e6e73;
+        }
+        
+        .email-subject {
+            font-size: 1rem;
+            color: #1d1d1f;
+            margin: 0.8rem 0;
+            font-weight: 500;
+            line-height: 1.3;
+        }
+        
+        .email-metrics {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.8rem;
+            margin-top: 1rem;
+        }
+        
+        .metric {
+            background: #f5f5f7;
+            padding: 0.8rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .metric-label {
+            font-size: 0.75rem;
+            color: #6e6e73;
+            margin-bottom: 0.3rem;
+        }
+        
+        .metric-value {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1d1d1f;
+        }
+
+        /* Email preview styles */
         .email-preview {
             flex: 1;
             display: flex;
             flex-direction: column;
-            background: white;
-        }
-        
-        .preview-container {
-            flex: 1;
-            overflow-y: auto;
-            padding: 2rem;
-        }
-        
-        /* Updated form styles */
-        .add-source-form {
-            padding: 1rem;
-            background: #f8f9fa;
-            border-top: 1px solid #e9ecef;
-        }
-        
-        .form-group {
-            margin-bottom: 0.75rem;
-        }
-        
-        .form-group label {
-            display: block;
-            font-size: 0.75rem;
-            color: #666;
-            margin-bottom: 0.25rem;
-        }
-        
-        .form-group input,
-        .form-group textarea {
-            width: 100%;
-            padding: 0.5rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 0.875rem;
-        }
-        
-        .form-group textarea {
-            height: 4rem;
-            resize: vertical;
-        }
-
-        /* Keep other styles the same but update these specific ones */
-        .email-card {
-            padding: 1rem;
-            border-bottom: 1px solid #e9ecef;
-            cursor: pointer;
+            background: #ffffff;
         }
         
         .preview-header {
             padding: 1.5rem 2rem;
-            background: white;
-            border-bottom: 1px solid #e9ecef;
+            border-bottom: 1px solid #e5e5e5;
+            background: #ffffff;
+        }
+        
+        .preview-header h2 {
+            font-size: 1.4rem;
+            font-weight: 500;
+            color: #1d1d1f;
+            margin-bottom: 0.8rem;
+            line-height: 1.3;
+            letter-spacing: -0.02em;
         }
         
         .preview-content {
-            padding: 2rem;
             flex: 1;
             overflow-y: auto;
-        }
-        
-        #preview-content {
-            height: 100%;
-            display: flex;
-            flex-direction: column;
+            padding: 2rem;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            color: #1d1d1f;
         }
 
-        /* Rest of your existing styles remain the same */
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f5f5f7;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #d2d2d7;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #86868b;
+        }
     </style>
+</head>
+<!-- Rest of your HTML remains the same -->
 </head>
 <body>
     <nav class="navbar">
