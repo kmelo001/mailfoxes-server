@@ -306,7 +306,11 @@
     document.querySelector(`.email-card[onclick="showPreview(${emailId})"]`).classList.add('active');
     
     // Fetch and display email content
-    fetch(`/emails/view/${emailId}`)
+    fetch(`/emails/view/${emailId}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
         .then(response => response.text())
         .then(html => {
             document.getElementById('preview-content').innerHTML = html;
