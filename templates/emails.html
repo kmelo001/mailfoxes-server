@@ -51,6 +51,27 @@
             padding: 12px 16px;
             border-bottom: 1px solid #e9ecef;
             cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .source-item i {
+            width: 16px;
+            text-align: center;
+            color: #666;
+        }
+        
+        .source-item.active i {
+            color: white;
+        }
+        
+        .source-divider {
+            height: 1px;
+            background: #e9ecef;
+            margin: 8px 0;
+            padding: 0;
+            cursor: default;
         }
         
         .source-item:hover {
@@ -248,10 +269,15 @@
     <div class="layout-container">
         <div class="sources-sidebar">
             <ul class="source-list">
+                <li class="source-item {% if current_source == 'all' %}active{% endif %}" 
+                    onclick="window.location.href='?source=all'">
+                    <i class="fas fa-inbox"></i> All Emails
+                </li>
+                <li class="source-item source-divider"></li>
                 {% for source in sources %}
                 <li class="source-item {% if source.id == current_source %}active{% endif %}" 
                     onclick="window.location.href='?source={{ source.id }}'">
-                    {{ source.name }}
+                    <i class="far fa-folder"></i> {{ source.name }}
                 </li>
                 {% endfor %}
             </ul>
@@ -260,16 +286,16 @@
         <div class="main-content">
             <div class="email-list">
                 <div class="filters">
-                    <select class="select" onchange="window.location.href='?time=' + this.value">
+                    <select class="select" onchange="window.location.href='?source={{ current_source }}&time=' + this.value">
                         <option value="all" {% if current_time == 'all' %}selected{% endif %}>All Time</option>
                         <option value="week" {% if current_time == 'week' %}selected{% endif %}>Last 7 days</option>
                         <option value="month" {% if current_time == 'month' %}selected{% endif %}>Last 30 days</option>
                     </select>
-                    <select class="select" onchange="window.location.href='?sort=' + this.value">
+                    <select class="select" onchange="window.location.href='?source={{ current_source }}&sort=' + this.value">
                         <option value="newest" {% if current_sort == 'newest' %}selected{% endif %}>Newest First</option>
                         <option value="oldest" {% if current_sort == 'oldest' %}selected{% endif %}>Oldest First</option>
                     </select>
-                    <select class="select" onchange="window.location.href='?limit=' + this.value">
+                    <select class="select" onchange="window.location.href='?source={{ current_source }}&limit=' + this.value">
                         <option value="10" {% if current_limit == '10' %}selected{% endif %}>Show 10</option>
                         <option value="25" {% if current_limit == '25' %}selected{% endif %}>Show 25</option>
                         <option value="50" {% if current_limit == '50' %}selected{% endif %}>Show 50</option>
