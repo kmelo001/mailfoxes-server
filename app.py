@@ -128,7 +128,8 @@ def add_source():
         cur.close()
         conn.close()
         
-        return redirect('/emails/view')
+        # Redirect to the new source's view
+        return redirect(f'/emails/view?source={new_id}')
         
     except Exception as e:
         return str(e), 500
