@@ -234,12 +234,10 @@ def view_emails_html():
         cur.execute('SELECT * FROM email_sources ORDER BY name')
         sources = cur.fetchall()
         
-        # Get current source from query params or default to first source
-        current_source = request.args.get('source')
-        if current_source:
+        # Get current source from query params or default to 'all'
+        current_source = request.args.get('source', 'all')
+        if current_source != 'all':
             current_source = int(current_source)
-        elif sources:
-            current_source = sources[0]['id']
         
         sort = request.args.get('sort', 'newest')
         limit = request.args.get('limit', '10')
@@ -249,15 +247,15 @@ def view_emails_html():
         params = []
         
         # Add source filter
-        if current_source:
+        if current_source != 'all':
             query += ' WHERE source_id = %s'
             params.append(current_source)
         
         if time_filter == 'week':
-            query += ' AND ' if current_source else ' WHERE '
+            query += ' AND ' if params else ' WHERE '
             query += 'received_at >= NOW() - INTERVAL \'7 days\''
         elif time_filter == 'month':
-            query += ' AND ' if current_source else ' WHERE '
+            query += ' AND ' if params else ' WHERE '
             query += 'received_at >= NOW() - INTERVAL \'30 days\''
         
         query += ' ORDER BY received_at ' + ('DESC' if sort == 'newest' else 'ASC')
