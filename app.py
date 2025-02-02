@@ -16,9 +16,6 @@ def init_db():
     conn = get_db_connection()
     cur = conn.cursor()
     
-    # Drop the existing table to start fresh
-    cur.execute('DROP TABLE IF EXISTS emails')
-    
     # Create new table with proper columns
     cur.execute('''
         CREATE TABLE IF NOT EXISTS emails (
