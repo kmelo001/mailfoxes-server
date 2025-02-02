@@ -1,171 +1,366 @@
-<!-- Replace the existing sidebar CSS with these styles -->
-<style>
-    .sources-sidebar {
-        width: 256px;
-        background: white;
-        border-right: 1px solid #e5e7eb;
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-    }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Email Analytics Dashboard</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        
+        body {
+            background-color: #f8f9fa;
+            height: 100vh;
+        }
+        
+        .navbar {
+            background-color: white;
+            padding: 1rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .nav-brand {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .layout-container {
+            display: flex;
+            height: calc(100vh - 60px);
+        }
 
-    .sidebar-header {
-        padding: 0.75rem 1rem;
-        background-color: #f9fafb;
-        border-bottom: 1px solid #e5e7eb;
-    }
-
-    .sidebar-header h2 {
-        font-size: 1.125rem;
-        font-weight: 600;
-        color: #374151;
-        margin: 0;
-    }
-
-    .source-list {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-        overflow-y: auto;
-        flex: 1;
-    }
-
-    .source-item {
-        position: relative;
-        border-bottom: 1px solid #e5e7eb;
-    }
-
-    .source-item a {
-        display: block;
-        padding: 0.75rem 1rem;
-        color: inherit;
-        text-decoration: none;
-        transition: background-color 0.2s;
-    }
-
-    .source-item:hover {
-        background-color: #f9fafb;
-    }
-
-    .source-item.active {
-        background-color: #eff6ff;
-    }
-
-    .source-item.active a {
-        color: #1d4ed8;
-    }
-
-    .source-name {
-        font-size: 0.875rem;
-        font-weight: 500;
-        color: #374151;
-        margin-bottom: 0.25rem;
-    }
-
-    .source-email {
-        font-size: 0.75rem;
-        color: #6b7280;
-    }
-
-    .delete-source {
-        position: absolute;
-        right: 0.75rem;
-        top: 50%;
-        transform: translateY(-50%);
-        color: #ef4444;
-        padding: 0.25rem;
-        border-radius: 0.25rem;
-        display: none;
-        background: none;
-        border: none;
-        cursor: pointer;
-    }
-
-    .source-item:hover .delete-source {
-        display: block;
-    }
-
-    .delete-source:hover {
-        background-color: #fee2e2;
-    }
-
-    .add-source-form {
-        padding: 1rem;
-        background-color: #f9fafb;
-        border-top: 1px solid #e5e7eb;
-    }
-
-    .form-input {
-        width: 100%;
-        padding: 0.5rem 0.75rem;
-        margin-bottom: 0.75rem;
-        border: 1px solid #d1d5db;
-        border-radius: 0.375rem;
-        font-size: 0.875rem;
-        transition: all 0.2s;
-    }
-
-    .form-input:focus {
-        outline: none;
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
-    }
-
-    .form-button {
-        width: 100%;
-        padding: 0.5rem 1rem;
-        background-color: #3b82f6;
-        color: white;
-        border: none;
-        border-radius: 0.375rem;
-        font-size: 0.875rem;
-        font-weight: 500;
-        cursor: pointer;
-        transition: background-color 0.2s;
-    }
-
-    .form-button:hover {
-        background-color: #2563eb;
-    }
-</style>
-
-<!-- Replace the existing sidebar HTML with this updated structure -->
-<div class="sources-sidebar">
-    <div class="sidebar-header">
-        <h2>Email Sources</h2>
-    </div>
-    <ul class="source-list">
-        {% for source in sources %}
-        <li class="source-item {% if source.id == current_source %}active{% endif %}">
-            <a href="?source={{ source.id }}">
-                <div class="source-name">{{ source.name }}</div>
-                <div class="source-email">{{ source.email_address }}</div>
-            </a>
-            <form action="/sources/delete/{{ source.id }}" method="POST" style="display: inline;">
-                <button type="submit" class="delete-source" onclick="return confirm('Are you sure you want to delete this source?')">
-                    <i class="fas fa-trash"></i>
-                </button>
-            </form>
-        </li>
-        {% endfor %}
-    </ul>
+        .sources-sidebar {
+            width: 200px;
+            background: #f8f9fa;
+            border-right: 1px solid #e9ecef;
+            overflow-y: auto;
+        }
+        
+        .source-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .source-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid #e9ecef;
+            cursor: pointer;
+        }
+        
+        .source-item:hover {
+            background: #e9ecef;
+        }
+        
+        .source-item.active {
+            background: #007bff;
+            color: white;
+        }
+        
+        .main-content {
+            display: flex;
+            flex: 1;
+        }
+        
+        .email-list {
+            width: 450px;
+            border-right: 1px solid #e9ecef;
+            background: white;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .email-preview {
+            flex: 1;
+            background: #f8f9fa;
+            overflow-y: auto;
+        }
+        
+        .filters {
+            padding: 1rem;
+            background: white;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .select {
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+            font-size: 0.875rem;
+        }
+        
+        .email-card {
+            padding: 1.5rem;
+            border-bottom: 1px solid #e9ecef;
+            cursor: pointer;
+        }
+        
+        .email-card:hover {
+            background: #f8f9fa;
+        }
+        
+        .email-card.active {
+            background: #e9ecef;
+        }
+        
+        .email-header {
+            margin-bottom: 1rem;
+        }
+        
+        .email-sender {
+            font-size: 0.875rem;
+            color: #666;
+            margin-bottom: 0.25rem;
+        }
+        
+        .email-timestamp {
+            font-size: 0.75rem;
+            color: #999;
+        }
+        
+        .email-subject {
+            font-size: 1rem;
+            color: #333;
+            margin-bottom: 1rem;
+            font-weight: 500;
+        }
+        
+        .email-metrics {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .metric {
+            background: #f8f9fa;
+            padding: 0.75rem;
+            border-radius: 4px;
+        }
+        
+        .metric-label {
+            font-size: 0.75rem;
+            color: #666;
+            margin-bottom: 0.25rem;
+        }
+        
+        .metric-value {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .share-section {
+            border-top: 1px solid #e9ecef;
+            padding-top: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .social-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .social-button {
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            color: white;
+            text-decoration: none;
+            font-size: 0.875rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .twitter { background: #1da1f2; }
+        .facebook { background: #4267B2; }
+        .linkedin { background: #0077b5; }
+        
+        .preview-container {
+            padding: 2rem;
+            height: 100%;
+        }
+        
+        #preview-content {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            height: 100%;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .preview-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .preview-header h2 {
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .preview-content {
+            flex: 1;
+            overflow: auto;
+            padding: 2rem;
+        }
+        
+        .email-content {
+            font-family: inherit;
+            line-height: 1.5;
+        }
+        
+        .email-content img {
+            max-width: 100%;
+            height: auto;
+        }
+        
+        .email-content table {
+            max-width: 100%;
+        }
+        
+        .email-content a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+        
+        .email-content a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">Email Analytics Dashboard</div>
+    </nav>
     
-    <div class="add-source-form">
-        <form action="/sources/add" method="POST">
-            <input type="text" 
-                   name="name" 
-                   placeholder="Source Name" 
-                   required 
-                   class="form-input">
-            <input type="email" 
-                   name="email" 
-                   placeholder="Monitor Email" 
-                   required 
-                   class="form-input">
-            <textarea name="description" 
-                      placeholder="Description" 
-                      class="form-input"></textarea>
-            <button type="submit" class="form-button">Add Source</button>
-        </form>
+    <div class="layout-container">
+        <div class="sources-sidebar">
+            <ul class="source-list">
+                {% for source in sources %}
+                <li class="source-item {% if source.id == current_source %}active{% endif %}" 
+                    onclick="window.location.href='?source={{ source.id }}'">
+                    {{ source.name }}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        
+        <div class="main-content">
+            <div class="email-list">
+                <div class="filters">
+                    <select class="select" onchange="window.location.href='?time=' + this.value">
+                        <option value="all" {% if current_time == 'all' %}selected{% endif %}>All Time</option>
+                        <option value="week" {% if current_time == 'week' %}selected{% endif %}>Last 7 days</option>
+                        <option value="month" {% if current_time == 'month' %}selected{% endif %}>Last 30 days</option>
+                    </select>
+                    <select class="select" onchange="window.location.href='?sort=' + this.value">
+                        <option value="newest" {% if current_sort == 'newest' %}selected{% endif %}>Newest First</option>
+                        <option value="oldest" {% if current_sort == 'oldest' %}selected{% endif %}>Oldest First</option>
+                    </select>
+                    <select class="select" onchange="window.location.href='?limit=' + this.value">
+                        <option value="10" {% if current_limit == '10' %}selected{% endif %}>Show 10</option>
+                        <option value="25" {% if current_limit == '25' %}selected{% endif %}>Show 25</option>
+                        <option value="50" {% if current_limit == '50' %}selected{% endif %}>Show 50</option>
+                    </select>
+                </div>
+                
+                {% for email in emails %}
+                <div class="email-card {% if loop.first %}active{% endif %}" onclick="showPreview({{ email.id }})">
+                    <div class="email-header">
+                        <div class="email-sender">{{ email.from_address }}</div>
+                        <div class="email-timestamp">{{ email.received_at.strftime('%a, %b %d, %Y - %I:%M%p') }}</div>
+                    </div>
+                    
+                    <div class="email-subject">{{ email.subject }}</div>
+                    
+                    <div class="email-metrics">
+                        <div class="metric">
+                            <div class="metric-label">Subject Length</div>
+                            <div class="metric-value">{{ email.subject_length }}</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">Word Count</div>
+                            <div class="metric-value">{{ email.word_count }}</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">Link Count</div>
+                            <div class="metric-value">{{ email.link_count }}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="share-section">
+                        <div class="social-buttons">
+                            <a href="#" class="social-button twitter">
+                                <i class="fab fa-twitter"></i> Tweet
+                            </a>
+                            <a href="#" class="social-button facebook">
+                                <i class="fab fa-facebook-f"></i> Share
+                            </a>
+                            <a href="#" class="social-button linkedin">
+                                <i class="fab fa-linkedin-in"></i> Post
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div class="email-preview">
+                <div class="preview-container">
+                    <div id="preview-content">
+                        {% if emails %}
+                        {% set first_email = emails[0] %}
+                        <div class="preview-header">
+                            <h2>{{ first_email.subject }}</h2>
+                            <div class="email-sender">From: {{ first_email.from_address }}</div>
+                            <div class="email-timestamp">{{ first_email.received_at.strftime('%a, %b %d, %Y - %I:%M%p') }}</div>
+                        </div>
+                        <div class="preview-content">
+                            {% if first_email.body_html %}
+                                {{ first_email.body_html|safe }}
+                            {% else %}
+                                <pre style="white-space: pre-wrap;">{{ first_email.body_text }}</pre>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-</div>
+    
+    <script>
+    function showPreview(emailId) {
+        // Update active state
+        document.querySelectorAll('.email-card').forEach(card => {
+            card.classList.remove('active');
+        });
+        document.querySelector(`.email-card[onclick="showPreview(${emailId})"]`).classList.add('active');
+        
+        // Fetch and display email content
+        fetch(`/emails/view/${emailId}`, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+            .then(response => response.text())
+            .then(html => {
+                document.getElementById('preview-content').innerHTML = html;
+            })
+            .catch(error => console.error('Error:', error));
+    }
+    </script>
+</body>
+</html>
