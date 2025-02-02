@@ -16,7 +16,7 @@ def init_db():
     conn = get_db_connection()
     cur = conn.cursor()
     
-    # Create email_sources table
+    # First create email_sources table if it doesn't exist
     cur.execute('''
         CREATE TABLE IF NOT EXISTS email_sources (
             id SERIAL PRIMARY KEY,
@@ -27,28 +27,49 @@ def init_db():
         );
     ''')
     
-    # Create emails table with source_id
-    cur.execute('''
-        CREATE TABLE IF NOT EXISTS emails (
-            id SERIAL PRIMARY KEY,
-            source_id INTEGER REFERENCES email_sources(id),
-            to_address TEXT,
-            from_address TEXT,
-            subject TEXT,
-            body_text TEXT,
-            body_html TEXT,
-            urls TEXT[],
-            received_at TIMESTAMP
+    # Check if emails table exists
+    cur.execute("""
+        SELECT EXISTS (
+            SELECT FROM information_schema.tables 
+            WHERE table_name = 'emails'
         );
-    ''')
+    """)
+    table_exists = cur.fetchone()[0]
     
-    # Index on email_address for faster lookups
+    if not table_exists:
+        # Create new emails table with source_id
+        cur.execute('''
+            CREATE TABLE emails (
+                id SERIAL PRIMARY KEY,
+                source_id INTEGER REFERENCES email_sources(id),
+                to_address TEXT,
+                from_address TEXT,
+                subject TEXT,
+                body_text TEXT,
+                body_html TEXT,
+                urls TEXT[],
+                received_at TIMESTAMP
+            );
+        ''')
+    else:
+        # Add source_id column if it doesn't exist
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns 
+                WHERE table_name = 'emails' AND column_name = 'source_id'
+            );
+        """)
+        column_exists = cur.fetchone()[0]
+        
+        if not column_exists:
+            cur.execute('ALTER TABLE emails ADD COLUMN source_id INTEGER REFERENCES email_sources(id);')
+    
+    # Create indexes
     cur.execute('''
         CREATE INDEX IF NOT EXISTS idx_sources_email 
         ON email_sources(email_address);
     ''')
     
-    # Index on source_id and received_at for faster filtering
     cur.execute('''
         CREATE INDEX IF NOT EXISTS idx_emails_source_date 
         ON emails(source_id, received_at DESC);
