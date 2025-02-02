@@ -170,17 +170,43 @@
         .preview-header {
             padding: 1.5rem;
             border-bottom: 1px solid #e9ecef;
+            background: white;
+        }
+
+        .preview-header h2 {
+            font-size: 1.25rem;
+            margin-bottom: 0.5rem;
         }
 
         .preview-content {
             flex: 1;
             overflow: auto;
+            padding: 2rem;
+            background: white;
         }
 
-        .preview-content iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
+        .email-content {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.5;
+            color: #333;
+        }
+
+        .email-content img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .email-content table {
+            max-width: 100%;
+        }
+
+        .email-content a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+
+        .email-content a:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
@@ -261,9 +287,13 @@
                         </div>
                         <div class="preview-content">
                             {% if first_email.body_html %}
-                                <iframe srcdoc="{{ first_email.body_html|safe }}"></iframe>
+                                <div class="email-content">
+                                    {{ first_email.body_html|safe }}
+                                </div>
                             {% else %}
-                                <pre style="white-space: pre-wrap; padding: 1.5rem;">{{ first_email.body_text }}</pre>
+                                <div class="email-content">
+                                    <pre style="white-space: pre-wrap;">{{ first_email.body_text }}</pre>
+                                </div>
                             {% endif %}
                         </div>
                     {% endif %}
@@ -288,6 +318,15 @@
             })
             .catch(error => console.error('Error:', error));
     }
+
+    // Preserve filters when changing any single filter
+    document.querySelectorAll('.select').forEach(select => {
+        select.addEventListener('change', (e) => {
+            const params = new URLSearchParams(window.location.search);
+            params.set(e.target.name, e.target.value);
+            window.location.href = `?${params.toString()}`;
+        });
+    });
     </script>
 </body>
 </html>
