@@ -11,29 +11,62 @@
             box-sizing: border-box;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
-
+        
         body {
             background-color: #f8f9fa;
             height: 100vh;
         }
-
+        
         .navbar {
             background-color: white;
             padding: 1rem;
             border-bottom: 1px solid #e9ecef;
         }
-
+        
         .nav-brand {
             font-size: 1.25rem;
             font-weight: 600;
             color: #333;
         }
-
+        
         .layout-container {
             display: flex;
             height: calc(100vh - 60px);
         }
 
+        .sources-sidebar {
+            width: 200px;
+            background: #f8f9fa;
+            border-right: 1px solid #e9ecef;
+            overflow-y: auto;
+        }
+        
+        .source-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .source-item {
+            padding: 12px 16px;
+            border-bottom: 1px solid #e9ecef;
+            cursor: pointer;
+        }
+        
+        .source-item:hover {
+            background: #e9ecef;
+        }
+        
+        .source-item.active {
+            background: #007bff;
+            color: white;
+        }
+        
+        .main-content {
+            display: flex;
+            flex: 1;
+        }
+        
         .email-list {
             width: 450px;
             border-right: 1px solid #e9ecef;
@@ -42,13 +75,13 @@
             display: flex;
             flex-direction: column;
         }
-
+        
         .email-preview {
             flex: 1;
             background: #f8f9fa;
             overflow-y: auto;
         }
-
+        
         .filters {
             padding: 1rem;
             background: white;
@@ -56,7 +89,7 @@
             display: flex;
             gap: 0.5rem;
         }
-
+        
         .select {
             padding: 0.5rem;
             border: 1px solid #ddd;
@@ -64,79 +97,79 @@
             background: white;
             font-size: 0.875rem;
         }
-
+        
         .email-card {
             padding: 1.5rem;
             border-bottom: 1px solid #e9ecef;
             cursor: pointer;
         }
-
+        
         .email-card:hover {
             background: #f8f9fa;
         }
-
+        
         .email-card.active {
             background: #e9ecef;
         }
-
+        
         .email-header {
             margin-bottom: 1rem;
         }
-
+        
         .email-sender {
             font-size: 0.875rem;
             color: #666;
             margin-bottom: 0.25rem;
         }
-
+        
         .email-timestamp {
             font-size: 0.75rem;
             color: #999;
         }
-
+        
         .email-subject {
             font-size: 1rem;
             color: #333;
             margin-bottom: 1rem;
             font-weight: 500;
         }
-
+        
         .email-metrics {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 0.5rem;
             margin-bottom: 1rem;
         }
-
+        
         .metric {
             background: #f8f9fa;
             padding: 0.75rem;
             border-radius: 4px;
         }
-
+        
         .metric-label {
             font-size: 0.75rem;
             color: #666;
             margin-bottom: 0.25rem;
         }
-
+        
         .metric-value {
             font-size: 1rem;
             font-weight: 600;
             color: #333;
         }
-
+        
         .share-section {
             border-top: 1px solid #e9ecef;
             padding-top: 1rem;
             margin-top: 1rem;
         }
-
+        
         .social-buttons {
             display: flex;
             gap: 0.5rem;
         }
-
+        
         .social-button {
             padding: 0.5rem 1rem;
             border-radius: 4px;
@@ -147,16 +180,16 @@
             align-items: center;
             gap: 0.5rem;
         }
-
+        
         .twitter { background: #1da1f2; }
         .facebook { background: #4267B2; }
         .linkedin { background: #0077b5; }
-
+        
         .preview-container {
             padding: 2rem;
             height: 100%;
         }
-
+        
         #preview-content {
             background: white;
             border-radius: 8px;
@@ -166,42 +199,42 @@
             display: flex;
             flex-direction: column;
         }
-
+        
         .preview-header {
             padding: 1.5rem;
             border-bottom: 1px solid #e9ecef;
         }
-
+        
         .preview-header h2 {
             font-size: 1.25rem;
             margin-bottom: 0.5rem;
         }
-
+        
         .preview-content {
             flex: 1;
             overflow: auto;
             padding: 2rem;
         }
-
+        
         .email-content {
             font-family: inherit;
             line-height: 1.5;
         }
-
+        
         .email-content img {
             max-width: 100%;
             height: auto;
         }
-
+        
         .email-content table {
             max-width: 100%;
         }
-
+        
         .email-content a {
             color: #0066cc;
             text-decoration: none;
         }
-
+        
         .email-content a:hover {
             text-decoration: underline;
         }
@@ -213,110 +246,121 @@
     </nav>
     
     <div class="layout-container">
-        <div class="email-list">
-            <div class="filters">
-                <select class="select" onchange="window.location.href='?time=' + this.value">
-                    <option value="all" {% if current_time == 'all' %}selected{% endif %}>All Time</option>
-                    <option value="week" {% if current_time == 'week' %}selected{% endif %}>Last 7 days</option>
-                    <option value="month" {% if current_time == 'month' %}selected{% endif %}>Last 30 days</option>
-                </select>
-                <select class="select" onchange="window.location.href='?sort=' + this.value">
-                    <option value="newest" {% if current_sort == 'newest' %}selected{% endif %}>Newest First</option>
-                    <option value="oldest" {% if current_sort == 'oldest' %}selected{% endif %}>Oldest First</option>
-                </select>
-                <select class="select" onchange="window.location.href='?limit=' + this.value">
-                    <option value="10" {% if current_limit == '10' %}selected{% endif %}>Show 10</option>
-                    <option value="25" {% if current_limit == '25' %}selected{% endif %}>Show 25</option>
-                    <option value="50" {% if current_limit == '50' %}selected{% endif %}>Show 50</option>
-                </select>
-            </div>
-
-            {% for email in emails %}
-            <div class="email-card {% if loop.first %}active{% endif %}" onclick="showPreview({{ email.id }})">
-                <div class="email-header">
-                    <div class="email-sender">{{ email.from_address }}</div>
-                    <div class="email-timestamp">{{ email.received_at.strftime('%a, %b %d, %Y - %I:%M%p') }}</div>
-                </div>
-                
-                <div class="email-subject">{{ email.subject }}</div>
-                
-                <div class="email-metrics">
-                    <div class="metric">
-                        <div class="metric-label">Subject Length</div>
-                        <div class="metric-value">{{ email.subject_length }}</div>
-                    </div>
-                    <div class="metric">
-                        <div class="metric-label">Word Count</div>
-                        <div class="metric-value">{{ email.word_count }}</div>
-                    </div>
-                    <div class="metric">
-                        <div class="metric-label">Link Count</div>
-                        <div class="metric-value">{{ email.link_count }}</div>
-                    </div>
-                </div>
-
-                <div class="share-section">
-                    <div class="social-buttons">
-                        <a href="#" class="social-button twitter">
-                            <i class="fab fa-twitter"></i> Tweet
-                        </a>
-                        <a href="#" class="social-button facebook">
-                            <i class="fab fa-facebook-f"></i> Share
-                        </a>
-                        <a href="#" class="social-button linkedin">
-                            <i class="fab fa-linkedin-in"></i> Post
-                        </a>
-                    </div>
-                </div>
-            </div>
-            {% endfor %}
+        <div class="sources-sidebar">
+            <ul class="source-list">
+                {% for source in sources %}
+                <li class="source-item {% if source.id == current_source %}active{% endif %}" 
+                    onclick="window.location.href='?source={{ source.id }}'">
+                    {{ source.name }}
+                </li>
+                {% endfor %}
+            </ul>
         </div>
-
-        <div class="email-preview">
-            <div class="preview-container">
-                <div id="preview-content">
-                    {% if emails %}
-                    {% set first_email = emails[0] %}
-                    <div class="preview-header">
-                        <h2>{{ first_email.subject }}</h2>
-                        <div class="email-sender">From: {{ first_email.from_address }}</div>
-                        <div class="email-timestamp">{{ first_email.received_at.strftime('%a, %b %d, %Y - %I:%M%p') }}</div>
+        
+        <div class="main-content">
+            <div class="email-list">
+                <div class="filters">
+                    <select class="select" onchange="window.location.href='?time=' + this.value">
+                        <option value="all" {% if current_time == 'all' %}selected{% endif %}>All Time</option>
+                        <option value="week" {% if current_time == 'week' %}selected{% endif %}>Last 7 days</option>
+                        <option value="month" {% if current_time == 'month' %}selected{% endif %}>Last 30 days</option>
+                    </select>
+                    <select class="select" onchange="window.location.href='?sort=' + this.value">
+                        <option value="newest" {% if current_sort == 'newest' %}selected{% endif %}>Newest First</option>
+                        <option value="oldest" {% if current_sort == 'oldest' %}selected{% endif %}>Oldest First</option>
+                    </select>
+                    <select class="select" onchange="window.location.href='?limit=' + this.value">
+                        <option value="10" {% if current_limit == '10' %}selected{% endif %}>Show 10</option>
+                        <option value="25" {% if current_limit == '25' %}selected{% endif %}>Show 25</option>
+                        <option value="50" {% if current_limit == '50' %}selected{% endif %}>Show 50</option>
+                    </select>
+                </div>
+                
+                {% for email in emails %}
+                <div class="email-card {% if loop.first %}active{% endif %}" onclick="showPreview({{ email.id }})">
+                    <div class="email-header">
+                        <div class="email-sender">{{ email.from_address }}</div>
+                        <div class="email-timestamp">{{ email.received_at.strftime('%a, %b %d, %Y - %I:%M%p') }}</div>
                     </div>
-                    <div class="preview-content">
-                        <div class="email-content">
-                        {% if first_email.body_html %}
-                            {{ first_email.body_html|safe }}
-                        {% else %}
-                            <pre style="white-space: pre-wrap;">{{ first_email.body_text }}</pre>
-                        {% endif %}
+                    
+                    <div class="email-subject">{{ email.subject }}</div>
+                    
+                    <div class="email-metrics">
+                        <div class="metric">
+                            <div class="metric-label">Subject Length</div>
+                            <div class="metric-value">{{ email.subject_length }}</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">Word Count</div>
+                            <div class="metric-value">{{ email.word_count }}</div>
+                        </div>
+                        <div class="metric">
+                            <div class="metric-label">Link Count</div>
+                            <div class="metric-value">{{ email.link_count }}</div>
                         </div>
                     </div>
-                    {% endif %}
+                    
+                    <div class="share-section">
+                        <div class="social-buttons">
+                            <a href="#" class="social-button twitter">
+                                <i class="fab fa-twitter"></i> Tweet
+                            </a>
+                            <a href="#" class="social-button facebook">
+                                <i class="fab fa-facebook-f"></i> Share
+                            </a>
+                            <a href="#" class="social-button linkedin">
+                                <i class="fab fa-linkedin-in"></i> Post
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div class="email-preview">
+                <div class="preview-container">
+                    <div id="preview-content">
+                        {% if emails %}
+                        {% set first_email = emails[0] %}
+                        <div class="preview-header">
+                            <h2>{{ first_email.subject }}</h2>
+                            <div class="email-sender">From: {{ first_email.from_address }}</div>
+                            <div class="email-timestamp">{{ first_email.received_at.strftime('%a, %b %d, %Y - %I:%M%p') }}</div>
+                        </div>
+                        <div class="preview-content">
+                            {% if first_email.body_html %}
+                                {{ first_email.body_html|safe }}
+                            {% else %}
+                                <pre style="white-space: pre-wrap;">{{ first_email.body_text }}</pre>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-
+    
     <script>
     function showPreview(emailId) {
-    // Update active state
-    document.querySelectorAll('.email-card').forEach(card => {
-        card.classList.remove('active');
-    });
-    document.querySelector(`.email-card[onclick="showPreview(${emailId})"]`).classList.add('active');
-    
-    // Fetch and display email content
-    fetch(`/emails/view/${emailId}`, {
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest'
-        }
-    })
-        .then(response => response.text())
-        .then(html => {
-            document.getElementById('preview-content').innerHTML = html;
+        // Update active state
+        document.querySelectorAll('.email-card').forEach(card => {
+            card.classList.remove('active');
+        });
+        document.querySelector(`.email-card[onclick="showPreview(${emailId})"]`).classList.add('active');
+        
+        // Fetch and display email content
+        fetch(`/emails/view/${emailId}`, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
         })
-        .catch(error => console.error('Error:', error));
-}
+            .then(response => response.text())
+            .then(html => {
+                document.getElementById('preview-content').innerHTML = html;
+            })
+            .catch(error => console.error('Error:', error));
+    }
     </script>
 </body>
 </html>
