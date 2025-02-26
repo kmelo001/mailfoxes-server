@@ -284,7 +284,11 @@ def init_db():
         # Make ID 10 the parent, others children
         cur.execute("UPDATE email_sources SET parent_id = 10, hidden = TRUE WHERE id IN (11, 20, 21, 32)")
         
-        # 5. Hide paid sources
+        # 5. Weiss Ratings Duplicates (IDs 3 and 31)
+        # Make ID 3 the parent, ID 31 the child
+        cur.execute("UPDATE email_sources SET parent_id = 3, hidden = TRUE WHERE id = 31")
+        
+        # 6. Hide paid sources
         cur.execute("UPDATE email_sources SET hidden = TRUE WHERE id IN (7, 8, 28, 29)")
     except Exception as e:
         print(f"Error setting up inbox consolidations: {str(e)}")
