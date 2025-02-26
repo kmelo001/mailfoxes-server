@@ -4,12 +4,6 @@
     <meta charset="UTF-8">
     <title>Email Analytics Dashboard</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
- <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Email Analytics Dashboard</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
      <style>
         * {
             margin: 0;
@@ -324,8 +318,6 @@
         }
     </style>
 </head>
-<!-- Rest of your HTML remains the same -->
-</head>
 <body>
     <nav class="navbar">
         <div class="nav-brand">Email Analytics Dashboard</div>
@@ -346,26 +338,6 @@
                     <i class="far fa-folder"></i> {{ source.name }}
                 </div>
                 {% endfor %}
-            </div>
-            
-            <div class="add-source-form">
-                <form action="/sources/add" method="POST">
-                    <div class="form-group">
-                        <label for="name">Competitor Name:</label>
-                        <input type="text" id="name" name="name" placeholder="e.g., Agora" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="email">Tracking Email:</label>
-                        <input type="email" id="email" name="email" placeholder="e.g., paolo@mailfoxes.com" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="description">Notes:</label>
-                        <textarea id="description" name="description" placeholder="Add any notes..."></textarea>
-                    </div>
-                    <button type="submit" class="submit-button">
-                        <i class="fas fa-plus"></i> Add Source
-                    </button>
-                </form>
             </div>
         </div>
         
