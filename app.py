@@ -296,9 +296,9 @@ def init_db():
         # Make ID 6 the parent, ID 9 the child
         cur.execute("UPDATE email_sources SET parent_id = 6, hidden = TRUE WHERE id = 9")
         
-        # 3. Tradesmith Duplicates (IDs 17 and 18)
-        # Make ID 17 the parent, ID 18 the child
-        cur.execute("UPDATE email_sources SET parent_id = 17, hidden = TRUE WHERE id = 18")
+        # 3. Tradesmith Duplicates (IDs 15, 17 and 18)
+        # Make ID 17 the parent, IDs 15 and 18 the children
+        cur.execute("UPDATE email_sources SET parent_id = 17, hidden = TRUE WHERE id IN (15, 18)")
         
         # 4. Paradigm Press Inboxes (IDs 10, 11, 20, 21, and 32)
         # Make ID 10 the parent, others children
