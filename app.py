@@ -216,6 +216,24 @@ def mark_email_processed(email_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/sources/details')
+def source_details():
+    """API endpoint to show detailed information about all sources"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=DictCursor)
+        
+        cur.execute('SELECT id, name, email_address, description FROM email_sources ORDER BY name')
+        sources = [dict(source) for source in cur.fetchall()]
+        
+        cur.close()
+        conn.close()
+        
+        return jsonify(sources)
+    
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/parse-email', methods=['POST'])
 def parse_email():
     print("==== Incoming SendGrid Parsed Email ====")
