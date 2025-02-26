@@ -74,7 +74,8 @@ def init_db():
                     body_html TEXT,
                     urls TEXT, -- Store as JSON string
                     received_at TIMESTAMP,
-                    processed BOOLEAN DEFAULT 0
+                    processed BOOLEAN DEFAULT 0,
+                    spam_score FLOAT
                 );
             ''')
         else:
@@ -85,6 +86,12 @@ def init_db():
             
             if not column_exists:
                 cur.execute('ALTER TABLE emails ADD COLUMN processed BOOLEAN DEFAULT 0;')
+                
+            # Check if spam_score column exists
+            column_exists = any(col[1] == 'spam_score' for col in columns)
+            
+            if not column_exists:
+                cur.execute('ALTER TABLE emails ADD COLUMN spam_score FLOAT;')
         
         # Create indexes
         cur.execute('CREATE INDEX IF NOT EXISTS idx_sources_email ON email_sources(email_address);')
@@ -146,7 +153,8 @@ def init_db():
                     body_html TEXT,
                     urls TEXT[],
                     received_at TIMESTAMP,
-                    processed BOOLEAN DEFAULT FALSE
+                    processed BOOLEAN DEFAULT FALSE,
+                    spam_score FLOAT
                 );
             ''')
         else:
@@ -161,6 +169,18 @@ def init_db():
             
             if not column_exists:
                 cur.execute('ALTER TABLE emails ADD COLUMN processed BOOLEAN DEFAULT FALSE;')
+                
+            # Add spam_score column if it doesn't exist
+            cur.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.columns 
+                    WHERE table_name = 'emails' AND column_name = 'spam_score'
+                );
+            """)
+            column_exists = cur.fetchone()[0]
+            
+            if not column_exists:
+                cur.execute('ALTER TABLE emails ADD COLUMN spam_score FLOAT;')
         
         # Create indexes
         cur.execute('''
@@ -317,6 +337,21 @@ def process_email_html(html_content):
     
     return processed_html
 
+def get_spam_score(email_content):
+    """Get spam score using the spamcheck library."""
+    try:
+        import spamcheck
+        
+        # We only need the score, not the full report
+        result = spamcheck.check(email_content, report=False)
+        return result['score']
+    except ImportError:
+        print("spamcheck library not installed. Install with: pip install spamcheck")
+        return 0
+    except Exception as e:
+        print(f"Error checking spam score: {str(e)}")
+        return 0  # Default score if API call fails
+
 def process_email_data(email_dict):
     """Process email data to add computed fields."""
     if isinstance(email_dict['received_at'], str):
@@ -343,6 +378,10 @@ def process_email_data(email_dict):
     email_dict['word_count'] = len(email_dict['body_text'].split()) if email_dict['body_text'] else 0
     email_dict['link_count'] = len(email_dict['urls']) if email_dict['urls'] else 0
     email_dict['share_url'] = f"/emails/view/{email_dict['id']}"
+    
+    # Ensure spam_score is available
+    if 'spam_score' not in email_dict or email_dict['spam_score'] is None:
+        email_dict['spam_score'] = 0
     
     return email_dict
 
@@ -519,6 +558,10 @@ def parse_email():
         
         # Extract URLs from text content first, fall back to HTML if no text
         urls = extract_urls(text_body) if text_body else extract_urls(html_body)
+        
+        # Calculate spam score
+        raw_email = f"From: {from_addr}\nTo: {to_addr}\nSubject: {subject}\n\n{text_body}"
+        spam_score = get_spam_score(raw_email)
 
         # Find the source based on the to_address
         conn = get_db_connection()
@@ -555,8 +598,8 @@ def parse_email():
         # Insert into database
         cur.execute('''
             INSERT INTO emails (
-                source_id, to_address, from_address, subject, body_text, body_html, urls, received_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                source_id, to_address, from_address, subject, body_text, body_html, urls, received_at, spam_score
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         ''', (
             source_id,
@@ -566,7 +609,8 @@ def parse_email():
             text_body,
             email_body,
             urls,
-            datetime.now()
+            datetime.now(),
+            spam_score
         ))
         new_id = cur.fetchone()[0]
         conn.commit()

@@ -225,7 +225,7 @@
         
         .email-metrics {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 0.8rem;
             margin-top: 1rem;
         }
@@ -385,6 +385,10 @@
                             <div class="metric">
                                 <div class="metric-label">Link Count</div>
                                 <div class="metric-value">{{ email.link_count }}</div>
+                            </div>
+                            <div class="metric">
+                                <div class="metric-label">Spam Score</div>
+                                <div class="metric-value">{{ email.spam_score|round(1) }}</div>
                             </div>
                         </div>
                     </div>
