@@ -209,6 +209,7 @@ def init_db():
         if not column_exists:
             cur.execute('ALTER TABLE email_sources ADD COLUMN hidden BOOLEAN DEFAULT FALSE;')
     
+    # First make sure all sources exist in the database
     # Update display names based on the spreadsheet data
     display_names = {
         1: "InvestorPlace - Free",
@@ -245,32 +246,49 @@ def init_db():
         32: "Paradigm Press - Free"
     }
     
+    # Make sure all sources exist in the database
     for source_id, display_name in display_names.items():
-        cur.execute(
-            "UPDATE email_sources SET display_name = %s WHERE id = %s AND (display_name IS NULL OR display_name = '')",
-            (display_name, source_id)
-        )
+        # Check if the source exists
+        cur.execute("SELECT COUNT(*) FROM email_sources WHERE id = %s", (source_id,))
+        count = cur.fetchone()[0]
+        
+        if count == 0:
+            # Source doesn't exist, create it with a placeholder email address
+            placeholder_email = f"source{source_id}@mailfoxes.com"
+            cur.execute(
+                "INSERT INTO email_sources (id, name, email_address, display_name) VALUES (%s, %s, %s, %s)",
+                (source_id, display_name, placeholder_email, display_name)
+            )
+        else:
+            # Source exists, update its display name if needed
+            cur.execute(
+                "UPDATE email_sources SET display_name = %s WHERE id = %s AND (display_name IS NULL OR display_name = '')",
+                (display_name, source_id)
+            )
     
-    # Set up inbox consolidations
-    
-    # 1. Marketbeat Duplicates (IDs 2 and 22)
-    # Make ID 2 the parent, ID 22 the child
-    cur.execute("UPDATE email_sources SET parent_id = 2, hidden = TRUE WHERE id = 22")
-    
-    # 2. Banyan Hill Duplicates (IDs 6 and 9)
-    # Make ID 6 the parent, ID 9 the child
-    cur.execute("UPDATE email_sources SET parent_id = 6, hidden = TRUE WHERE id = 9")
-    
-    # 3. Tradesmith Duplicates (IDs 17 and 18)
-    # Make ID 17 the parent, ID 18 the child
-    cur.execute("UPDATE email_sources SET parent_id = 17, hidden = TRUE WHERE id = 18")
-    
-    # 4. Paradigm Press Inboxes (IDs 10, 11, 20, 21, and 32)
-    # Make ID 10 the parent, others children
-    cur.execute("UPDATE email_sources SET parent_id = 10, hidden = TRUE WHERE id IN (11, 20, 21, 32)")
-    
-    # 5. Hide paid sources
-    cur.execute("UPDATE email_sources SET hidden = TRUE WHERE id IN (7, 8, 28, 29)")
+    # Now that all sources exist, set up inbox consolidations
+    try:
+        # 1. Marketbeat Duplicates (IDs 2 and 22)
+        # Make ID 2 the parent, ID 22 the child
+        cur.execute("UPDATE email_sources SET parent_id = 2, hidden = TRUE WHERE id = 22")
+        
+        # 2. Banyan Hill Duplicates (IDs 6 and 9)
+        # Make ID 6 the parent, ID 9 the child
+        cur.execute("UPDATE email_sources SET parent_id = 6, hidden = TRUE WHERE id = 9")
+        
+        # 3. Tradesmith Duplicates (IDs 17 and 18)
+        # Make ID 17 the parent, ID 18 the child
+        cur.execute("UPDATE email_sources SET parent_id = 17, hidden = TRUE WHERE id = 18")
+        
+        # 4. Paradigm Press Inboxes (IDs 10, 11, 20, 21, and 32)
+        # Make ID 10 the parent, others children
+        cur.execute("UPDATE email_sources SET parent_id = 10, hidden = TRUE WHERE id IN (11, 20, 21, 32)")
+        
+        # 5. Hide paid sources
+        cur.execute("UPDATE email_sources SET hidden = TRUE WHERE id IN (7, 8, 28, 29)")
+    except Exception as e:
+        print(f"Error setting up inbox consolidations: {str(e)}")
+        # Continue with the rest of the initialization
     
     conn.commit()
     cur.close()
