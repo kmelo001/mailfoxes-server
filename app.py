@@ -13,7 +13,16 @@ app = Flask(__name__)
 API_TOKEN = os.environ.get('API_TOKEN')
 
 def get_db_connection():
-    conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
+    database_url = os.environ.get('DATABASE_URL')
+    if database_url:
+        # Production database (Render)
+        conn = psycopg2.connect(database_url)
+    else:
+        # Local development - use SQLite
+        print("DATABASE_URL not set. Using local SQLite database for development.")
+        import sqlite3
+        conn = sqlite3.connect('mailfoxes.db')
+        conn.row_factory = sqlite3.Row
     return conn
 
 def token_required(f):
@@ -29,65 +38,178 @@ def init_db():
     conn = get_db_connection()
     cur = conn.cursor()
     
-    # First create email_sources table if it doesn't exist
-    cur.execute('''
-        CREATE TABLE IF NOT EXISTS email_sources (
-            id SERIAL PRIMARY KEY,
-            name TEXT NOT NULL,
-            email_address TEXT NOT NULL UNIQUE,
-            description TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-    ''')
+    # Check if we're using SQLite
+    is_sqlite = 'sqlite3.Connection' in str(type(conn))
     
-    # Check if emails table exists
-    cur.execute("""
-        SELECT EXISTS (
-            SELECT FROM information_schema.tables 
-            WHERE table_name = 'emails'
-        );
-    """)
-    table_exists = cur.fetchone()[0]
-    
-    if not table_exists:
-        # Create new emails table with source_id
+    if is_sqlite:
+        # SQLite version
         cur.execute('''
-            CREATE TABLE emails (
-                id SERIAL PRIMARY KEY,
-                source_id INTEGER REFERENCES email_sources(id),
-                to_address TEXT,
-                from_address TEXT,
-                subject TEXT,
-                body_text TEXT,
-                body_html TEXT,
-                urls TEXT[],
-                received_at TIMESTAMP,
-                processed BOOLEAN DEFAULT FALSE
+            CREATE TABLE IF NOT EXISTS email_sources (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                email_address TEXT NOT NULL UNIQUE,
+                description TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                display_name TEXT
             );
         ''')
+        
+        # SQLite doesn't have information_schema, so we check differently
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='emails';")
+        table_exists = cur.fetchone() is not None
+        
+        if not table_exists:
+            # Create new emails table with source_id
+            # SQLite doesn't support arrays, so we'll store URLs as JSON
+            cur.execute('''
+                CREATE TABLE emails (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    source_id INTEGER REFERENCES email_sources(id),
+                    to_address TEXT,
+                    from_address TEXT,
+                    subject TEXT,
+                    body_text TEXT,
+                    body_html TEXT,
+                    urls TEXT, -- Store as JSON string
+                    received_at TIMESTAMP,
+                    processed BOOLEAN DEFAULT 0
+                );
+            ''')
+        else:
+            # Check if processed column exists
+            cur.execute("PRAGMA table_info(emails);")
+            columns = cur.fetchall()
+            column_exists = any(col[1] == 'processed' for col in columns)
+            
+            if not column_exists:
+                cur.execute('ALTER TABLE emails ADD COLUMN processed BOOLEAN DEFAULT 0;')
+        
+        # Create indexes
+        cur.execute('CREATE INDEX IF NOT EXISTS idx_sources_email ON email_sources(email_address);')
+        cur.execute('CREATE INDEX IF NOT EXISTS idx_emails_source_date ON emails(source_id, received_at);')
+        
+        # Check if display_name column exists
+        cur.execute("PRAGMA table_info(email_sources);")
+        columns = cur.fetchall()
+        column_exists = any(col[1] == 'display_name' for col in columns)
+        
+        if not column_exists:
+            cur.execute('ALTER TABLE email_sources ADD COLUMN display_name TEXT;')
     else:
-        # Add processed column if it doesn't exist
+        # PostgreSQL version
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS email_sources (
+                id SERIAL PRIMARY KEY,
+                name TEXT NOT NULL,
+                email_address TEXT NOT NULL UNIQUE,
+                description TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                display_name TEXT
+            );
+        ''')
+        
+        # Check if emails table exists
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'emails'
+            );
+        """)
+        table_exists = cur.fetchone()[0]
+        
+        if not table_exists:
+            # Create new emails table with source_id
+            cur.execute('''
+                CREATE TABLE emails (
+                    id SERIAL PRIMARY KEY,
+                    source_id INTEGER REFERENCES email_sources(id),
+                    to_address TEXT,
+                    from_address TEXT,
+                    subject TEXT,
+                    body_text TEXT,
+                    body_html TEXT,
+                    urls TEXT[],
+                    received_at TIMESTAMP,
+                    processed BOOLEAN DEFAULT FALSE
+                );
+            ''')
+        else:
+            # Add processed column if it doesn't exist
+            cur.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.columns 
+                    WHERE table_name = 'emails' AND column_name = 'processed'
+                );
+            """)
+            column_exists = cur.fetchone()[0]
+            
+            if not column_exists:
+                cur.execute('ALTER TABLE emails ADD COLUMN processed BOOLEAN DEFAULT FALSE;')
+        
+        # Create indexes
+        cur.execute('''
+            CREATE INDEX IF NOT EXISTS idx_sources_email 
+            ON email_sources(email_address);
+        ''')
+        
+        cur.execute('''
+            CREATE INDEX IF NOT EXISTS idx_emails_source_date 
+            ON emails(source_id, received_at DESC);
+        ''')
+        
+        # Check if display_name column exists
         cur.execute("""
             SELECT EXISTS (
                 SELECT FROM information_schema.columns 
-                WHERE table_name = 'emails' AND column_name = 'processed'
+                WHERE table_name = 'email_sources' AND column_name = 'display_name'
             );
         """)
         column_exists = cur.fetchone()[0]
         
         if not column_exists:
-            cur.execute('ALTER TABLE emails ADD COLUMN processed BOOLEAN DEFAULT FALSE;')
+            cur.execute('ALTER TABLE email_sources ADD COLUMN display_name TEXT;')
     
-    # Create indexes
-    cur.execute('''
-        CREATE INDEX IF NOT EXISTS idx_sources_email 
-        ON email_sources(email_address);
-    ''')
+    # Update display names based on the spreadsheet data
+    display_names = {
+        1: "InvestorPlace - Free",
+        2: "Marketbeat - Free",
+        3: "Weiss Ratings - Free",
+        4: "Brownstone Research - Free",
+        5: "Wyatt Research - Free",
+        6: "Banyan Hill - Free",
+        7: "Tim Sykes - Paid",
+        8: "Tim Sykes - Paid",
+        9: "Banyan Hill - Free",
+        10: "Paradigm Press - Free",
+        11: "Paradigm Press - Free",
+        12: "Angel Pub - Wealth Daily - Free",
+        13: "Angel Pub - Energy Capital - Free",
+        14: "Agora - MoneyMorning - Free",
+        15: "Tradesmith - Free",
+        16: "Daily Strike Alliance - Free",
+        17: "Tradesmith - Free",
+        18: "Tradesmith - Free",
+        19: "Widemoat Research - Free",
+        20: "Paradigm Press - Free",
+        21: "Paradigm Press - Free",
+        22: "Marketbeat - Free",
+        23: "Southbank Research (UK) - AI Collision - Free",
+        24: "Fat Tail Research (AUS) - Free",
+        25: "Agora France - Free",
+        26: "Omnia Research - Opportunistic Trader - Free",
+        27: "Porter and Co - Free",
+        28: "Oxford Club - Comunique - Paid",
+        29: "Oxford Club - Comunique - Paid",
+        30: "Teeka Tiwari - Free",
+        31: "Weiss Ratings - Free",
+        32: "Paradigm Press - Free"
+    }
     
-    cur.execute('''
-        CREATE INDEX IF NOT EXISTS idx_emails_source_date 
-        ON emails(source_id, received_at DESC);
-    ''')
+    for source_id, display_name in display_names.items():
+        cur.execute(
+            "UPDATE email_sources SET display_name = %s WHERE id = %s AND (display_name IS NULL OR display_name = '')",
+            (display_name, source_id)
+        )
     
     conn.commit()
     cur.close()
@@ -104,6 +226,18 @@ def process_email_data(email_dict):
     """Process email data to add computed fields."""
     if isinstance(email_dict['received_at'], str):
         email_dict['received_at'] = datetime.strptime(email_dict['received_at'], '%Y-%m-%d %H:%M:%S.%f')
+    
+    # Handle URLs field which could be a JSON string (SQLite) or an array (PostgreSQL)
+    if 'urls' in email_dict:
+        if isinstance(email_dict['urls'], str) and email_dict['urls'].startswith('['):
+            try:
+                # Try to parse as JSON if it's a string
+                email_dict['urls'] = json.loads(email_dict['urls'])
+            except:
+                # If parsing fails, keep as is
+                pass
+    else:
+        email_dict['urls'] = []
     
     # Add computed fields
     email_dict['subject_length'] = len(email_dict['subject']) if email_dict['subject'] else 0
@@ -124,18 +258,20 @@ def add_source():
         name = request.form.get('name')
         email = request.form.get('email')
         description = request.form.get('description')
+        display_name = request.form.get('display_name', name)  # Default to name if not provided
         
         conn = get_db_connection()
         cur = conn.cursor()
         
         cur.execute('''
-            INSERT INTO email_sources (name, email_address, description)
-            VALUES (%s, %s, %s)
+            INSERT INTO email_sources (name, email_address, description, display_name)
+            VALUES (%s, %s, %s, %s)
             ON CONFLICT (email_address) DO UPDATE 
             SET name = EXCLUDED.name,
-                description = EXCLUDED.description
+                description = EXCLUDED.description,
+                display_name = EXCLUDED.display_name
             RETURNING id
-        ''', (name, email, description))
+        ''', (name, email, description, display_name))
         
         new_id = cur.fetchone()[0]
         conn.commit()
@@ -177,10 +313,15 @@ def get_unprocessed_emails():
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=DictCursor)
         
-        cur.execute('''
+        # Check if we're using SQLite
+        is_sqlite = 'sqlite3.Connection' in str(type(conn))
+        
+        processed_value = "0" if is_sqlite else "FALSE"
+        
+        cur.execute(f'''
             SELECT id, urls, body_html, received_at 
             FROM emails 
-            WHERE processed = FALSE
+            WHERE processed = {processed_value}
             ORDER BY received_at DESC
         ''')
         
@@ -201,9 +342,14 @@ def mark_email_processed(email_id):
         conn = get_db_connection()
         cur = conn.cursor()
         
-        cur.execute('''
+        # Check if we're using SQLite
+        is_sqlite = 'sqlite3.Connection' in str(type(conn))
+        
+        processed_value = "1" if is_sqlite else "TRUE"
+        
+        cur.execute(f'''
             UPDATE emails 
-            SET processed = TRUE 
+            SET processed = {processed_value} 
             WHERE id = %s
         ''', (email_id,))
         
@@ -223,7 +369,16 @@ def source_details():
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=DictCursor)
         
-        cur.execute('SELECT id, name, email_address, description FROM email_sources ORDER BY name')
+        # Check if we're using SQLite
+        is_sqlite = 'sqlite3.Connection' in str(type(conn))
+        
+        if is_sqlite:
+            # SQLite version - doesn't support NULLS LAST
+            cur.execute('SELECT id, name, email_address, description, display_name FROM email_sources ORDER BY CASE WHEN display_name IS NULL THEN 1 ELSE 0 END, display_name, name')
+        else:
+            # PostgreSQL version
+            cur.execute('SELECT id, name, email_address, description, display_name FROM email_sources ORDER BY display_name NULLS LAST, name')
+            
         sources = [dict(source) for source in cur.fetchall()]
         
         cur.close()
@@ -260,6 +415,13 @@ def parse_email():
         conn = get_db_connection()
         cur = conn.cursor()
         
+        # Check if we're using SQLite
+        is_sqlite = 'sqlite3.Connection' in str(type(conn))
+        
+        # For SQLite, convert URLs to JSON string
+        if is_sqlite:
+            urls = json.dumps(urls)
+        
         # First check if we have a source for this email address
         cur.execute('SELECT id FROM email_sources WHERE email_address = %s', (to_addr,))
         source_result = cur.fetchone()
@@ -267,11 +429,18 @@ def parse_email():
         
         # If no source exists, create one automatically
         if not source_id:
+            # Create a display name from the domain
+            domain = from_addr.split('@')[1]
+            display_name = domain.split('.')[0].capitalize()
+            if display_name.endswith('>'):
+                display_name = display_name[:-1]  # Remove trailing '>' if present
+            display_name += " - Auto"
+            
             cur.execute('''
-                INSERT INTO email_sources (name, email_address, description)
-                VALUES (%s, %s, %s)
+                INSERT INTO email_sources (name, email_address, description, display_name)
+                VALUES (%s, %s, %s, %s)
                 RETURNING id
-            ''', (from_addr.split('@')[1], to_addr, f'Auto-created from {from_addr}'))
+            ''', (domain, to_addr, f'Auto-created from {from_addr}', display_name))
             source_id = cur.fetchone()[0]
 
         # Insert into database
@@ -310,7 +479,16 @@ def view_emails_html():
         cur = conn.cursor(cursor_factory=DictCursor)
         
         # Get all sources
-        cur.execute('SELECT * FROM email_sources ORDER BY name')
+        # Check if we're using SQLite
+        is_sqlite = 'sqlite3.Connection' in str(type(conn))
+        
+        if is_sqlite:
+            # SQLite version - doesn't support NULLS LAST
+            cur.execute('SELECT * FROM email_sources ORDER BY CASE WHEN display_name IS NULL THEN 1 ELSE 0 END, display_name, name')
+        else:
+            # PostgreSQL version
+            cur.execute('SELECT * FROM email_sources ORDER BY display_name NULLS LAST, name')
+            
         sources = cur.fetchall()
         
         # Get current source from query params or default to 'all'
@@ -322,6 +500,9 @@ def view_emails_html():
         limit = request.args.get('limit', '10')
         time_filter = request.args.get('time', 'all')
         
+        # Check if we're using SQLite
+        is_sqlite = 'sqlite3.Connection' in str(type(conn))
+        
         query = 'SELECT * FROM emails'
         params = []
         
@@ -330,12 +511,17 @@ def view_emails_html():
             query += ' WHERE source_id = %s'
             params.append(current_source)
         
-        if time_filter == 'week':
+        if time_filter == 'week' or time_filter == 'month':
             query += ' AND ' if params else ' WHERE '
-            query += 'received_at >= NOW() - INTERVAL \'7 days\''
-        elif time_filter == 'month':
-            query += ' AND ' if params else ' WHERE '
-            query += 'received_at >= NOW() - INTERVAL \'30 days\''
+            
+            if is_sqlite:
+                # SQLite version - use datetime functions
+                days = 7 if time_filter == 'week' else 30
+                query += "received_at >= datetime('now', '-" + str(days) + " days')"
+            else:
+                # PostgreSQL version
+                interval = '7 days' if time_filter == 'week' else '30 days'
+                query += f"received_at >= NOW() - INTERVAL '{interval}'"
         
         query += ' ORDER BY received_at ' + ('DESC' if sort == 'newest' else 'ASC')
         query += ' LIMIT %s'
