@@ -305,6 +305,18 @@ def extract_urls(text):
     url_pattern = r'http[s]?://(?:[a-zA-Z0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
     return re.findall(url_pattern, text)
 
+def process_email_html(html_content):
+    """Add target="_blank" to all links in the email HTML content."""
+    if not html_content:
+        return html_content
+    
+    # Use a regular expression to find all <a> tags and add target="_blank"
+    pattern = r'<a\s+(?:[^>]*?\s+)?href="([^"]*)"([^>]*)>'
+    replacement = r'<a href="\1" target="_blank" rel="noopener noreferrer"\2>'
+    processed_html = re.sub(pattern, replacement, html_content)
+    
+    return processed_html
+
 def process_email_data(email_dict):
     """Process email data to add computed fields."""
     if isinstance(email_dict['received_at'], str):
@@ -321,6 +333,10 @@ def process_email_data(email_dict):
                 pass
     else:
         email_dict['urls'] = []
+    
+    # Process HTML content to add target="_blank" to links
+    if 'body_html' in email_dict and email_dict['body_html']:
+        email_dict['body_html'] = process_email_html(email_dict['body_html'])
     
     # Add computed fields
     email_dict['subject_length'] = len(email_dict['subject']) if email_dict['subject'] else 0
