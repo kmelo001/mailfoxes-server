@@ -50,7 +50,9 @@ def init_db():
                 email_address TEXT NOT NULL UNIQUE,
                 description TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                display_name TEXT
+                display_name TEXT,
+                parent_id INTEGER NULL REFERENCES email_sources(id),
+                hidden BOOLEAN DEFAULT 0
             );
         ''')
         
@@ -95,6 +97,18 @@ def init_db():
         
         if not column_exists:
             cur.execute('ALTER TABLE email_sources ADD COLUMN display_name TEXT;')
+            
+        # Check if parent_id column exists
+        column_exists = any(col[1] == 'parent_id' for col in columns)
+        
+        if not column_exists:
+            cur.execute('ALTER TABLE email_sources ADD COLUMN parent_id INTEGER NULL REFERENCES email_sources(id);')
+            
+        # Check if hidden column exists
+        column_exists = any(col[1] == 'hidden' for col in columns)
+        
+        if not column_exists:
+            cur.execute('ALTER TABLE email_sources ADD COLUMN hidden BOOLEAN DEFAULT 0;')
     else:
         # PostgreSQL version
         cur.execute('''
@@ -104,7 +118,9 @@ def init_db():
                 email_address TEXT NOT NULL UNIQUE,
                 description TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                display_name TEXT
+                display_name TEXT,
+                parent_id INTEGER NULL REFERENCES email_sources(id),
+                hidden BOOLEAN DEFAULT FALSE
             );
         ''')
         
@@ -168,6 +184,30 @@ def init_db():
         
         if not column_exists:
             cur.execute('ALTER TABLE email_sources ADD COLUMN display_name TEXT;')
+            
+        # Check if parent_id column exists
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns 
+                WHERE table_name = 'email_sources' AND column_name = 'parent_id'
+            );
+        """)
+        column_exists = cur.fetchone()[0]
+        
+        if not column_exists:
+            cur.execute('ALTER TABLE email_sources ADD COLUMN parent_id INTEGER NULL REFERENCES email_sources(id);')
+            
+        # Check if hidden column exists
+        cur.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns 
+                WHERE table_name = 'email_sources' AND column_name = 'hidden'
+            );
+        """)
+        column_exists = cur.fetchone()[0]
+        
+        if not column_exists:
+            cur.execute('ALTER TABLE email_sources ADD COLUMN hidden BOOLEAN DEFAULT FALSE;')
     
     # Update display names based on the spreadsheet data
     display_names = {
@@ -210,6 +250,27 @@ def init_db():
             "UPDATE email_sources SET display_name = %s WHERE id = %s AND (display_name IS NULL OR display_name = '')",
             (display_name, source_id)
         )
+    
+    # Set up inbox consolidations
+    
+    # 1. Marketbeat Duplicates (IDs 2 and 22)
+    # Make ID 2 the parent, ID 22 the child
+    cur.execute("UPDATE email_sources SET parent_id = 2, hidden = TRUE WHERE id = 22")
+    
+    # 2. Banyan Hill Duplicates (IDs 6 and 9)
+    # Make ID 6 the parent, ID 9 the child
+    cur.execute("UPDATE email_sources SET parent_id = 6, hidden = TRUE WHERE id = 9")
+    
+    # 3. Tradesmith Duplicates (IDs 17 and 18)
+    # Make ID 17 the parent, ID 18 the child
+    cur.execute("UPDATE email_sources SET parent_id = 17, hidden = TRUE WHERE id = 18")
+    
+    # 4. Paradigm Press Inboxes (IDs 10, 11, 20, 21, and 32)
+    # Make ID 10 the parent, others children
+    cur.execute("UPDATE email_sources SET parent_id = 10, hidden = TRUE WHERE id IN (11, 20, 21, 32)")
+    
+    # 5. Hide paid sources
+    cur.execute("UPDATE email_sources SET hidden = TRUE WHERE id IN (7, 8, 28, 29)")
     
     conn.commit()
     cur.close()
@@ -374,10 +435,20 @@ def source_details():
         
         if is_sqlite:
             # SQLite version - doesn't support NULLS LAST
-            cur.execute('SELECT id, name, email_address, description, display_name FROM email_sources ORDER BY CASE WHEN display_name IS NULL THEN 1 ELSE 0 END, display_name, name')
+            cur.execute('''
+                SELECT id, name, email_address, description, display_name, parent_id 
+                FROM email_sources 
+                WHERE hidden = 0 OR hidden IS NULL
+                ORDER BY CASE WHEN display_name IS NULL THEN 1 ELSE 0 END, display_name, name
+            ''')
         else:
             # PostgreSQL version
-            cur.execute('SELECT id, name, email_address, description, display_name FROM email_sources ORDER BY display_name NULLS LAST, name')
+            cur.execute('''
+                SELECT id, name, email_address, description, display_name, parent_id 
+                FROM email_sources 
+                WHERE hidden = FALSE OR hidden IS NULL
+                ORDER BY display_name NULLS LAST, name
+            ''')
             
         sources = [dict(source) for source in cur.fetchall()]
         
@@ -478,16 +549,24 @@ def view_emails_html():
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=DictCursor)
         
-        # Get all sources
+        # Get all non-hidden sources
         # Check if we're using SQLite
         is_sqlite = 'sqlite3.Connection' in str(type(conn))
         
         if is_sqlite:
             # SQLite version - doesn't support NULLS LAST
-            cur.execute('SELECT * FROM email_sources ORDER BY CASE WHEN display_name IS NULL THEN 1 ELSE 0 END, display_name, name')
+            cur.execute('''
+                SELECT * FROM email_sources 
+                WHERE hidden = 0 OR hidden IS NULL
+                ORDER BY CASE WHEN display_name IS NULL THEN 1 ELSE 0 END, display_name, name
+            ''')
         else:
             # PostgreSQL version
-            cur.execute('SELECT * FROM email_sources ORDER BY display_name NULLS LAST, name')
+            cur.execute('''
+                SELECT * FROM email_sources 
+                WHERE hidden = FALSE OR hidden IS NULL
+                ORDER BY display_name NULLS LAST, name
+            ''')
             
         sources = cur.fetchall()
         
@@ -508,8 +587,19 @@ def view_emails_html():
         
         # Add source filter
         if current_source != 'all':
-            query += ' WHERE source_id = %s'
-            params.append(current_source)
+            # Get child sources (if any)
+            cur.execute('SELECT id FROM email_sources WHERE parent_id = %s', (current_source,))
+            child_sources = [row[0] for row in cur.fetchall()]
+            
+            # Include emails from both the current source and its children
+            if child_sources:
+                source_ids = [current_source] + child_sources
+                placeholders = ', '.join(['%s'] * len(source_ids))
+                query += f' WHERE source_id IN ({placeholders})'
+                params.extend(source_ids)
+            else:
+                query += ' WHERE source_id = %s'
+                params.append(current_source)
         
         if time_filter == 'week' or time_filter == 'month':
             query += ' AND ' if params else ' WHERE '
