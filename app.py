@@ -375,7 +375,39 @@ def process_email_data(email_dict):
     
     # Add computed fields
     email_dict['subject_length'] = len(email_dict['subject']) if email_dict['subject'] else 0
-    email_dict['word_count'] = len(email_dict['body_text'].split()) if email_dict['body_text'] else 0
+    
+    # Calculate word count - if body_text is empty but body_html exists, extract text from HTML
+    if not email_dict.get('body_text') and email_dict.get('body_html'):
+        try:
+            # Extract text from HTML (removing HTML tags)
+            from bs4 import BeautifulSoup
+            
+            # Check if this is an analystratines.net email
+            is_analystratines = False
+            if 'from_address' in email_dict and email_dict['from_address']:
+                if 'analystratines.net' in email_dict['from_address'].lower():
+                    is_analystratines = True
+                    print(f"Processing analystratines.net email: {email_dict.get('subject', 'No Subject')}")
+            
+            # Parse HTML and extract text
+            text_from_html = BeautifulSoup(email_dict['body_html'], 'html.parser').get_text(separator=' ', strip=True)
+            
+            # Count words
+            word_count = len(text_from_html.split())
+            email_dict['word_count'] = word_count
+            
+            if is_analystratines:
+                print(f"Extracted {word_count} words from HTML content")
+                
+        except ImportError:
+            print("BeautifulSoup not installed. Install with: pip install beautifulsoup4")
+            email_dict['word_count'] = 0
+        except Exception as e:
+            print(f"Error extracting text from HTML: {str(e)}")
+            email_dict['word_count'] = 0
+    else:
+        email_dict['word_count'] = len(email_dict['body_text'].split()) if email_dict['body_text'] else 0
+    
     email_dict['link_count'] = len(email_dict['urls']) if email_dict['urls'] else 0
     email_dict['share_url'] = f"/emails/view/{email_dict['id']}"
     
