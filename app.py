@@ -782,26 +782,6 @@ def view_single_email(email_id):
         print(f"Error: {str(e)}")
         return str(e), 500
 
-@app.after_request
-def add_security_headers(response):
-    # Prevent clickjacking
-    response.headers['X-Frame-Options'] = 'DENY'
-    
-    # Prevent MIME type sniffing
-    response.headers['X-Content-Type-Options'] = 'nosniff'
-    
-    # Enable XSS protection in browsers
-    response.headers['X-XSS-Protection'] = '1; mode=block'
-    
-    # Restrict where resources can be loaded from
-    response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' cdnjs.cloudflare.com; font-src cdnjs.cloudflare.com; img-src 'self' data:;"
-    
-    # Force HTTPS (only enable in production)
-    if not app.debug:
-        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
-    
-    return response
-
 # Initialize the database when the app starts
 init_db()
 
