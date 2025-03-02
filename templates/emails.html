@@ -405,13 +405,12 @@
             <i class="fas fa-envelope"></i>
             Mailfoxes
         </div>
+        <div class="nav-actions">
+            <a href="/" class="nav-link">Home</a>
+            <a href="/inbox" class="nav-link">Inbox</a>
+            <a href="/emails/view" class="nav-link active">Timelines</a>
+        </div>
     </nav>
-    
-    <div class="sub-nav">
-        <a href="/" class="sub-nav-link">Home</a>
-        <a href="/inbox" class="sub-nav-link">Inbox</a>
-        <a href="/emails/view" class="sub-nav-link active">Timelines</a>
-    </div>
     
     <div class="layout-container">
         <!-- Sidebar with sources and form -->
@@ -521,11 +520,15 @@
                 'X-Requested-With': 'XMLHttpRequest'
             }
         })
-            .then(function(response) { return response.text(); })
-            .then(function(html) {
-                document.getElementById('preview-content').innerHTML = html;
-            })
-            .catch(function(error) { console.error('Error:', error); });
+        .then(function(response) { 
+            return response.text(); 
+        })
+        .then(function(html) {
+            document.getElementById('preview-content').innerHTML = html;
+        })
+        .catch(function(error) { 
+            console.error('Error:', error); 
+        });
     }
     </script>
 </body>
