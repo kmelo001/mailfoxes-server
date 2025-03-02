@@ -2,6 +2,11 @@
 
 Email analytics dashboard for tracking and analyzing emails from various sources.
 
+## Live Application
+
+The application is deployed and accessible at:
+- [https://mailfoxes-server.onrender.com/inbox](https://mailfoxes-server.onrender.com/inbox)
+
 ## Environment Variables
 
 For security reasons, sensitive information like database credentials should be stored as environment variables rather than hardcoded in the application. The following environment variables are used:
