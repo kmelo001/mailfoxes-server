@@ -388,8 +388,9 @@
         // Initialize the emails chart
         const ctx = document.getElementById('emailsChart').getContext('2d');
         
-        const labels = {{ timeline_data.labels|tojson }};
-        const values = {{ timeline_data.values|tojson }};
+        // Parse the pre-serialized JSON data
+        const labels = JSON.parse('{{ labels_json|safe }}');
+        const values = JSON.parse('{{ values_json|safe }}');
         
         const emailsChart = new Chart(ctx, {
             type: 'line',

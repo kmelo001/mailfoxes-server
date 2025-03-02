@@ -360,10 +360,8 @@ def home():
         conn.close()
         
         # Format data for template - ensure all data is JSON serializable
-        timeline_data = {
-            'labels': [],
-            'values': []
-        }
+        labels = []
+        values = []
         
         for row in email_timeline:
             # Convert datetime objects to strings to ensure JSON serializability
@@ -375,8 +373,12 @@ def home():
             # Ensure count is a simple integer, not a database-specific type
             email_count = int(row['email_count']) if row['email_count'] is not None else 0
             
-            timeline_data['labels'].append(formatted_date)
-            timeline_data['values'].append(email_count)
+            labels.append(formatted_date)
+            values.append(email_count)
+        
+        # Pre-serialize the data to JSON strings
+        labels_json = json.dumps(labels)
+        values_json = json.dumps(values)
         
         # Ensure avg_spam_score is a simple float
         avg_spam_score = float(round(avg_spam_score, 2)) if avg_spam_score is not None else 0.0
@@ -385,7 +387,8 @@ def home():
                              total_emails=int(total_emails) if total_emails is not None else 0,
                              source_count=int(source_count) if source_count is not None else 0,
                              avg_spam_score=avg_spam_score,
-                             timeline_data=timeline_data)
+                             labels_json=labels_json,
+                             values_json=values_json)
                              
     except Exception as e:
         print(f"Error: {str(e)}")
