@@ -391,54 +391,56 @@
                 </div>
             </div>
             
-            <div class="filters-grid">
-                <div class="filter-group">
-                    <label class="filter-label">Competitor</label>
-                    <select class="filter-select">
-                        <option value="all">All</option>
-                        {% for source in sources %}
-                        <option value="{{ source.id }}">{{ source.display_name if source.display_name else source.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                <div class="filter-group">
-                    <label class="filter-label">Tag</label>
-                    <select class="filter-select">
-                        <option value="-">-</option>
-                        <option value="important">Important</option>
-                        <option value="follow-up">Follow-up</option>
-                        <option value="archived">Archived</option>
-                    </select>
-                </div>
-                
-                <div class="filter-group">
-                    <label class="filter-label">Keywords</label>
-                    <div style="display: flex; align-items: center;">
-                        <select class="filter-select" style="width: 120px; margin-right: 8px;">
-                            <option value="subject">Subject</option>
-                            <option value="body">Body</option>
-                            <option value="all">All Fields</option>
+            <form action="/inbox" method="GET">
+                <div class="filters-grid">
+                    <div class="filter-group">
+                        <label class="filter-label">Competitor</label>
+                        <select class="filter-select" name="competitor">
+                            <option value="all">All</option>
+                            {% for source in sources %}
+                            <option value="{{ source.id }}" {% if request.args.get('competitor') == source.id|string %}selected{% endif %}>{{ source.display_name if source.display_name else source.name }}</option>
+                            {% endfor %}
                         </select>
-                        <input type="text" class="filter-input" placeholder="e.g.: 'save' or 'discount'" style="flex: 1;">
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label class="filter-label">Tag</label>
+                        <select class="filter-select" name="tag">
+                            <option value="-" {% if request.args.get('tag') == '-' %}selected{% endif %}>-</option>
+                            <option value="important" {% if request.args.get('tag') == 'important' %}selected{% endif %}>Important</option>
+                            <option value="follow-up" {% if request.args.get('tag') == 'follow-up' %}selected{% endif %}>Follow-up</option>
+                            <option value="archived" {% if request.args.get('tag') == 'archived' %}selected{% endif %}>Archived</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label class="filter-label">Keywords</label>
+                        <div style="display: flex; align-items: center;">
+                            <select class="filter-select" style="width: 120px; margin-right: 8px;" name="keyword_type">
+                                <option value="subject" {% if request.args.get('keyword_type') == 'subject' %}selected{% endif %}>Subject</option>
+                                <option value="body" {% if request.args.get('keyword_type') == 'body' %}selected{% endif %}>Body</option>
+                                <option value="all" {% if request.args.get('keyword_type') == 'all' %}selected{% endif %}>All Fields</option>
+                            </select>
+                            <input type="text" class="filter-input" name="keyword" placeholder="e.g.: 'save' or 'discount'" style="flex: 1;" value="{{ request.args.get('keyword', '') }}">
+                        </div>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label class="filter-label">Start Date</label>
+                        <input type="date" class="filter-input" name="start_date" value="{{ request.args.get('start_date', '2025-01-31') }}">
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label class="filter-label">End Date</label>
+                        <input type="date" class="filter-input" name="end_date" value="{{ request.args.get('end_date', '2025-03-02') }}">
                     </div>
                 </div>
                 
-                <div class="filter-group">
-                    <label class="filter-label">Start Date</label>
-                    <input type="date" class="filter-input" value="2025-01-31">
-                </div>
-                
-                <div class="filter-group">
-                    <label class="filter-label">End Date</label>
-                    <input type="date" class="filter-input" value="2025-03-02">
-                </div>
-            </div>
-            
-            <button class="update-button">
-                <i class="fas fa-sync-alt"></i>
-                Update
-            </button>
+                <button type="submit" class="update-button">
+                    <i class="fas fa-sync-alt"></i>
+                    Update
+                </button>
+            </form>
         </div>
         
         <div class="emails-container">
@@ -447,7 +449,7 @@
                     <i class="fas fa-envelope"></i>
                     Emails
                 </div>
-                <div class="emails-count">1-0 (of 0)</div>
+                <div class="emails-count">{{ email_count if email_count else "0 (of 0)" }}</div>
             </div>
             
             <table class="emails-table">

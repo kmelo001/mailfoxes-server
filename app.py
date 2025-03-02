@@ -642,7 +642,7 @@ def new_inbox():
         # Add source/competitor filter
         if competitor != 'all':
             where_clauses.append('e.source_id = %s')
-            params.append(competitor)
+            params.append(int(competitor))
         
         # Add keyword filter
         if keyword:
@@ -663,7 +663,8 @@ def new_inbox():
             params.append(start_date)
         
         if end_date:
-            where_clauses.append('e.received_at <= %s')
+            # Add 1 day to end_date to include the entire end date
+            where_clauses.append('e.received_at < (%s::date + INTERVAL \'1 day\')')
             params.append(end_date)
         
         # Combine where clauses
@@ -685,10 +686,15 @@ def new_inbox():
         emails_list = [process_email_data(dict(email)) for email in emails]
         sources_list = [dict(source) for source in sources]
         
+        # Calculate email count for display
+        email_count = len(emails_list)
+        email_count_display = f"1-{email_count} (of {email_count})" if email_count > 0 else "0 (of 0)"
+        
         return render_template('new_inbox.html',
                              emails=emails_list,
                              sources=sources_list,
-                             current_source=current_source)
+                             current_source=current_source,
+                             email_count=email_count_display)
     
     except Exception as e:
         print(f"Error: {str(e)}")
