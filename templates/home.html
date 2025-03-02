@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mailfoxes - Email Analytics Dashboard</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        body {
+            background-color: #f5f5f7;
+            color: #1d1d1f;
+        }
+        
+        .navbar {
+            background-color: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e5e5e5;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+            z-index: 1000;
+        }
+        
+        .nav-brand {
+            font-size: 1.3rem;
+            font-weight: 500;
+            color: #1d1d1f;
+            letter-spacing: -0.02em;
+            display: flex;
+            align-items: center;
+        }
+        
+        .nav-brand i {
+            margin-right: 10px;
+            color: #e74c3c;
+        }
+        
+        .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .nav-link {
+            color: #1d1d1f;
+            text-decoration: none;
+            font-size: 0.9rem;
+            padding: 0.5rem 0.8rem;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+        
+        .nav-link:hover {
+            background-color: #f5f5f7;
+        }
+        
+        .btn {
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .btn-primary {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+        }
+        
+        .btn-primary:hover {
+            background-color: #d44637;
+        }
+        
+        .btn-outline {
+            background-color: transparent;
+            color: #1d1d1f;
+            border: 1px solid #d2d2d7;
+        }
+        
+        .btn-outline:hover {
+            background-color: #f5f5f7;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+        
+        .page-title {
+            font-size: 2rem;
+            font-weight: 600;
+            color: #1d1d1f;
+        }
+        
+        .stats-counter {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #1d1d1f;
+            margin-top: 0.5rem;
+        }
+        
+        .sub-nav {
+            display: flex;
+            background-color: white;
+            border-bottom: 1px solid #e5e5e5;
+            padding: 0 1.5rem;
+        }
+        
+        .sub-nav-link {
+            padding: 1rem 1.5rem;
+            color: #1d1d1f;
+            text-decoration: none;
+            font-size: 0.95rem;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+        
+        .sub-nav-link:hover {
+            color: #e74c3c;
+        }
+        
+        .sub-nav-link.active {
+            color: #e74c3c;
+            font-weight: 500;
+        }
+        
+        .sub-nav-link.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background-color: #e74c3c;
+        }
+        
+        .stats-row {
+            display: flex;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .stats-card {
+            background-color: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            flex: 1;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        
+        .stats-label {
+            font-size: 1rem;
+            color: #6e6e73;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .stats-label i {
+            color: #e74c3c;
+        }
+        
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .feature-card {
+            background-color: #e74c3c;
+            color: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .feature-title {
+            font-size: 1.2rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+        
+        .feature-desc {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            margin-bottom: 1rem;
+        }
+        
+        .feature-link {
+            margin-top: auto;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        
+        .chart-container {
+            background-color: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .chart-title {
+            font-size: 1.2rem;
+            font-weight: 500;
+            color: #1d1d1f;
+        }
+        
+        .chart-canvas {
+            width: 100%;
+            height: 300px;
+        }
+        
+        .tracked-count {
+            background-color: #f5f5f7;
+            padding: 0.3rem 0.6rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        
+        .add-new-link {
+            color: #e74c3c;
+            text-decoration: none;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+        
+        .add-new-link:hover {
+            text-decoration: underline;
+        }
+        
+        @media (max-width: 768px) {
+            .stats-row {
+                flex-direction: column;
+            }
+            
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <i class="fas fa-envelope"></i>
+            Mailfoxes
+        </div>
+        <div class="nav-actions">
+            <a href="#" class="btn btn-outline">My Account</a>
+            <a href="#" class="btn btn-primary">Sign Out</a>
+        </div>
+    </nav>
+    
+    <div class="sub-nav">
+        <a href="/" class="sub-nav-link active">Home</a>
+        <a href="/emails/view" class="sub-nav-link">Inbox</a>
+        <a href="#" class="sub-nav-link">Timelines</a>
+        <a href="#" class="sub-nav-link">Dashboards</a>
+        <a href="#" class="sub-nav-link">Trends</a>
+        <a href="#" class="sub-nav-link">Collections</a>
+        <a href="#" class="sub-nav-link">Alerts</a>
+    </div>
+    
+    <div class="container">
+        <div class="page-header">
+            <h1 class="page-title">Home</h1>
+            <span class="tracked-count">Sources Tracked: {{ source_count }}</span>
+        </div>
+        
+        <div class="stats-row">
+            <div class="stats-card">
+                <div class="stats-label">
+                    <i class="fas fa-inbox"></i>
+                    Sources Tracked
+                </div>
+                <div class="stats-counter">{{ source_count }}</div>
+            </div>
+            <div class="stats-card">
+                <div class="stats-label">
+                    <i class="fas fa-envelope"></i>
+                    Emails Received
+                </div>
+                <div class="stats-counter">{{ total_emails }}</div>
+            </div>
+            <div class="stats-card">
+                <div class="stats-label">
+                    <i class="fas fa-shield-alt"></i>
+                    Average Spam Score
+                </div>
+                <div class="stats-counter">{{ avg_spam_score }}</div>
+            </div>
+        </div>
+        
+        <div class="feature-grid">
+            <a href="/emails/view" class="feature-card">
+                <div class="feature-title">Inbox</div>
+                <div class="feature-desc">View and analyze all your tracked emails</div>
+                <div class="feature-link">
+                    Open inbox <i class="fas fa-arrow-right"></i>
+                </div>
+            </a>
+            <a href="#" class="feature-card">
+                <div class="feature-title">Timelines</div>
+                <div class="feature-desc">See email sequences and patterns</div>
+                <div class="feature-link">
+                    View timelines <i class="fas fa-arrow-right"></i>
+                </div>
+            </a>
+            <a href="#" class="feature-card">
+                <div class="feature-title">Dashboards</div>
+                <div class="feature-desc">Dig into email tactics and metrics</div>
+                <div class="feature-link">
+                    Explore dashboards <i class="fas fa-arrow-right"></i>
+                </div>
+            </a>
+            <a href="#" class="feature-card">
+                <div class="feature-title">Trends</div>
+                <div class="feature-desc">Analyze the big picture patterns</div>
+                <div class="feature-link">
+                    See trends <i class="fas fa-arrow-right"></i>
+                </div>
+            </a>
+        </div>
+        
+        <div class="chart-container">
+            <div class="chart-header">
+                <div class="chart-title">
+                    <i class="fas fa-envelope"></i>
+                    Emails Received (Last 30 Days)
+                </div>
+                <a href="/emails/view" class="add-new-link">
+                    View all emails <i class="fas fa-arrow-right"></i>
+                </a>
+            </div>
+            <canvas id="emailsChart" class="chart-canvas"></canvas>
+        </div>
+    </div>
+    
+    <script>
+        // Initialize the emails chart
+        const ctx = document.getElementById('emailsChart').getContext('2d');
+        
+        const labels = {{ timeline_data.labels|tojson }};
+        const values = {{ timeline_data.values|tojson }};
+        
+        const emailsChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Emails Received',
+                    data: values,
+                    backgroundColor: 'rgba(231, 76, 60, 0.2)',
+                    borderColor: 'rgba(231, 76, 60, 1)',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    pointBackgroundColor: 'rgba(231, 76, 60, 1)',
+                    pointRadius: 3,
+                    pointHoverRadius: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                        titleColor: '#1d1d1f',
+                        bodyColor: '#1d1d1f',
+                        borderColor: '#e5e5e5',
+                        borderWidth: 1,
+                        padding: 10,
+                        displayColors: false,
+                        callbacks: {
+                            title: function(tooltipItems) {
+                                return tooltipItems[0].label;
+                            },
+                            label: function(context) {
+                                return `${context.parsed.y} emails received`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
