@@ -634,8 +634,19 @@ def new_inbox():
         start_date = request.args.get('start_date', '')
         end_date = request.args.get('end_date', '')
         
+        # Get pagination parameters
+        page = request.args.get('page', '1')
+        try:
+            page = int(page)
+            if page < 1:
+                page = 1
+        except ValueError:
+            page = 1
+        
+        per_page = 25  # Number of emails per page
+        
         # Build query based on filters
-        query = 'SELECT e.*, s.name as source_name, s.display_name FROM emails e LEFT JOIN email_sources s ON e.source_id = s.id'
+        base_query = 'FROM emails e LEFT JOIN email_sources s ON e.source_id = s.id'
         params = []
         where_clauses = []
         
@@ -668,11 +679,29 @@ def new_inbox():
             params.append(end_date)
         
         # Combine where clauses
+        where_clause = ''
         if where_clauses:
-            query += ' WHERE ' + ' AND '.join(where_clauses)
+            where_clause = ' WHERE ' + ' AND '.join(where_clauses)
         
-        # Add order and limit
-        query += ' ORDER BY e.received_at DESC LIMIT 100'
+        # First, get total count for pagination
+        count_query = f'SELECT COUNT(*) {base_query}{where_clause}'
+        cur.execute(count_query, params)
+        total_emails = cur.fetchone()[0]
+        
+        # Calculate total pages
+        total_pages = (total_emails + per_page - 1) // per_page  # Ceiling division
+        
+        # Ensure page is within valid range
+        if page > total_pages and total_pages > 0:
+            page = total_pages
+        
+        # Calculate offset
+        offset = (page - 1) * per_page
+        
+        # Build final query with pagination
+        query = f'SELECT e.*, s.name as source_name, s.display_name {base_query}{where_clause}'
+        query += ' ORDER BY e.received_at DESC'
+        query += f' LIMIT {per_page} OFFSET {offset}'
         
         # Execute query
         cur.execute(query, params)
@@ -687,14 +716,21 @@ def new_inbox():
         sources_list = [dict(source) for source in sources]
         
         # Calculate email count for display
-        email_count = len(emails_list)
-        email_count_display = f"1-{email_count} (of {email_count})" if email_count > 0 else "0 (of 0)"
+        start_index = offset + 1 if emails_list else 0
+        end_index = offset + len(emails_list)
+        email_count_display = f"{start_index}-{end_index} (of {total_emails})" if emails_list else f"0 (of {total_emails})"
         
         return render_template('new_inbox.html',
                              emails=emails_list,
                              sources=sources_list,
                              current_source=current_source,
-                             email_count=email_count_display)
+                             email_count=email_count_display,
+                             pagination={
+                                 'page': page,
+                                 'per_page': per_page,
+                                 'total_pages': total_pages,
+                                 'total_emails': total_emails
+                             })
     
     except Exception as e:
         print(f"Error: {str(e)}")

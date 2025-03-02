@@ -478,7 +478,119 @@
                     {% endif %}
                 </tbody>
             </table>
+            
+            {% if pagination and pagination.total_pages > 1 %}
+            <div class="pagination-container">
+                <div class="pagination">
+                    {% if pagination.page > 1 %}
+                    <a href="{{ request.path }}?{{ request.query_string.decode('utf-8').replace('page=' + pagination.page|string, 'page=' + (pagination.page - 1)|string) if 'page=' in request.query_string.decode('utf-8') else request.query_string.decode('utf-8') + ('&' if request.query_string else '') + 'page=' + (pagination.page - 1)|string }}" class="pagination-button">
+                        <i class="fas fa-chevron-left"></i> Previous
+                    </a>
+                    {% else %}
+                    <span class="pagination-button disabled">
+                        <i class="fas fa-chevron-left"></i> Previous
+                    </span>
+                    {% endif %}
+                    
+                    {% set start_page = [1, pagination.page - 2]|max %}
+                    {% set end_page = [pagination.total_pages, start_page + 4]|min %}
+                    {% set start_page = [1, end_page - 4]|max %}
+                    
+                    {% if start_page > 1 %}
+                    <a href="{{ request.path }}?{{ request.query_string.decode('utf-8').replace('page=' + pagination.page|string, 'page=1') if 'page=' in request.query_string.decode('utf-8') else request.query_string.decode('utf-8') + ('&' if request.query_string else '') + 'page=1' }}" class="pagination-link">1</a>
+                    {% if start_page > 2 %}
+                    <span class="pagination-ellipsis">...</span>
+                    {% endif %}
+                    {% endif %}
+                    
+                    {% for p in range(start_page, end_page + 1) %}
+                    {% if p == pagination.page %}
+                    <span class="pagination-link active">{{ p }}</span>
+                    {% else %}
+                    <a href="{{ request.path }}?{{ request.query_string.decode('utf-8').replace('page=' + pagination.page|string, 'page=' + p|string) if 'page=' in request.query_string.decode('utf-8') else request.query_string.decode('utf-8') + ('&' if request.query_string else '') + 'page=' + p|string }}" class="pagination-link">{{ p }}</a>
+                    {% endif %}
+                    {% endfor %}
+                    
+                    {% if end_page < pagination.total_pages %}
+                    {% if end_page < pagination.total_pages - 1 %}
+                    <span class="pagination-ellipsis">...</span>
+                    {% endif %}
+                    <a href="{{ request.path }}?{{ request.query_string.decode('utf-8').replace('page=' + pagination.page|string, 'page=' + pagination.total_pages|string) if 'page=' in request.query_string.decode('utf-8') else request.query_string.decode('utf-8') + ('&' if request.query_string else '') + 'page=' + pagination.total_pages|string }}" class="pagination-link">{{ pagination.total_pages }}</a>
+                    {% endif %}
+                    
+                    {% if pagination.page < pagination.total_pages %}
+                    <a href="{{ request.path }}?{{ request.query_string.decode('utf-8').replace('page=' + pagination.page|string, 'page=' + (pagination.page + 1)|string) if 'page=' in request.query_string.decode('utf-8') else request.query_string.decode('utf-8') + ('&' if request.query_string else '') + 'page=' + (pagination.page + 1)|string }}" class="pagination-button">
+                        Next <i class="fas fa-chevron-right"></i>
+                    </a>
+                    {% else %}
+                    <span class="pagination-button disabled">
+                        Next <i class="fas fa-chevron-right"></i>
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
+    
+    <style>
+        /* Pagination styles */
+        .pagination-container {
+            display: flex;
+            justify-content: center;
+            padding: 1.5rem;
+            border-top: 1px solid #e5e5e5;
+        }
+        
+        .pagination {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .pagination-link, .pagination-button, .pagination-ellipsis {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 2rem;
+            height: 2rem;
+            padding: 0 0.5rem;
+            font-size: 0.9rem;
+            color: #1d1d1f;
+            text-decoration: none;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+        
+        .pagination-link:hover, .pagination-button:hover {
+            background-color: #f5f5f7;
+        }
+        
+        .pagination-link.active {
+            background-color: #0066cc;
+            color: white;
+        }
+        
+        .pagination-button {
+            padding: 0 0.8rem;
+        }
+        
+        .pagination-button i {
+            margin: 0 0.3rem;
+        }
+        
+        .pagination-button.disabled {
+            color: #a1a1a6;
+            cursor: not-allowed;
+        }
+        
+        .pagination-button.disabled:hover {
+            background-color: transparent;
+        }
+        
+        .pagination-ellipsis {
+            color: #6e6e73;
+        }
+    </style>
 </body>
 </html>
