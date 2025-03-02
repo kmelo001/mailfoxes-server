@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>FinPub Email Pulse</title>
+    <title>Mailfoxes - Timelines</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
      <style>
         * {
@@ -21,13 +21,13 @@
         }
         
         .navbar {
-            background-color: rgba(255, 255, 255, 0.8);
-            backdrop-filter: blur(20px);
+            background-color: #000000;
             padding: 1rem 1.5rem;
-            border-bottom: 1px solid #e5e5e5;
+            border-bottom: 1px solid #333;
             height: 60px;
             display: flex;
             align-items: center;
+            justify-content: space-between;
             position: relative;
             z-index: 1000;
         }
@@ -35,8 +35,89 @@
         .nav-brand {
             font-size: 1.3rem;
             font-weight: 500;
-            color: #1d1d1f;
+            color: white;
             letter-spacing: -0.02em;
+            display: flex;
+            align-items: center;
+        }
+        
+        .nav-brand i {
+            margin-right: 10px;
+            color: #0066cc;
+        }
+        
+        .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .btn {
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .btn-primary {
+            background-color: #0066cc;
+            color: white;
+            border: none;
+        }
+        
+        .btn-primary:hover {
+            background-color: #0055aa;
+        }
+        
+        .btn-outline {
+            background-color: transparent;
+            color: white;
+            border: 1px solid #666;
+        }
+        
+        .btn-outline:hover {
+            background-color: #333;
+        }
+        
+        .sub-nav {
+            display: flex;
+            background-color: #f8f8f8;
+            border-bottom: 1px solid #e5e5e5;
+            padding: 0 1.5rem;
+        }
+        
+        .sub-nav-link {
+            padding: 1rem 1.5rem;
+            color: #1d1d1f;
+            text-decoration: none;
+            font-size: 0.95rem;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+        
+        .sub-nav-link:hover {
+            color: #0066cc;
+        }
+        
+        .sub-nav-link.active {
+            color: #0066cc;
+            font-weight: 500;
+        }
+        
+        .sub-nav-link.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background-color: #0066cc;
         }
         
         .layout-container {
@@ -320,8 +401,25 @@
 </head>
 <body>
     <nav class="navbar">
-        <div class="nav-brand">FinPub Email Pulse</div>
+        <div class="nav-brand">
+            <i class="fas fa-envelope"></i>
+            Mailfoxes
+        </div>
+        <div class="nav-actions">
+            <a href="#" class="btn btn-outline">My Account</a>
+            <a href="#" class="btn btn-primary">Sign Out</a>
+        </div>
     </nav>
+    
+    <div class="sub-nav">
+        <a href="/" class="sub-nav-link">Home</a>
+        <a href="/inbox" class="sub-nav-link">Inbox</a>
+        <a href="/emails/view" class="sub-nav-link active">Timelines</a>
+        <a href="#" class="sub-nav-link">Dashboards</a>
+        <a href="#" class="sub-nav-link">Trends</a>
+        <a href="#" class="sub-nav-link">Collections</a>
+        <a href="#" class="sub-nav-link">Alerts</a>
+    </div>
     
     <div class="layout-container">
         <!-- Sidebar with sources and form -->
