@@ -359,24 +359,32 @@ def home():
         cur.close()
         conn.close()
         
-        # Format data for template
+        # Format data for template - ensure all data is JSON serializable
         timeline_data = {
             'labels': [],
             'values': []
         }
         
         for row in email_timeline:
-            # PostgreSQL returns datetime objects
-            date_obj = row['day']
-            formatted_date = date_obj.strftime('%b %d')
+            # Convert datetime objects to strings to ensure JSON serializability
+            if row['day']:
+                formatted_date = row['day'].strftime('%b %d')
+            else:
+                formatted_date = 'Unknown'
+                
+            # Ensure count is a simple integer, not a database-specific type
+            email_count = int(row['email_count']) if row['email_count'] is not None else 0
             
             timeline_data['labels'].append(formatted_date)
-            timeline_data['values'].append(row['email_count'])
+            timeline_data['values'].append(email_count)
+        
+        # Ensure avg_spam_score is a simple float
+        avg_spam_score = float(round(avg_spam_score, 2)) if avg_spam_score is not None else 0.0
         
         return render_template('home.html', 
-                             total_emails=total_emails,
-                             source_count=source_count,
-                             avg_spam_score=round(avg_spam_score, 2),
+                             total_emails=int(total_emails) if total_emails is not None else 0,
+                             source_count=int(source_count) if source_count is not None else 0,
+                             avg_spam_score=avg_spam_score,
                              timeline_data=timeline_data)
                              
     except Exception as e:
