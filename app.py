@@ -530,7 +530,11 @@ def parse_email():
             email_body = text_body
         
         # Extract URLs from text content first, fall back to HTML if no text
-        urls = extract_urls(text_body) if text_body else extract_urls(html_body)
+        extracted_urls = extract_urls(text_body) if text_body else extract_urls(html_body)
+        
+        # Ensure URLs are properly serialized for PostgreSQL array
+        # Convert the list to a proper PostgreSQL array format
+        urls_array = extracted_urls if extracted_urls else []
         
         # Calculate spam score
         raw_email = f"From: {from_addr}\nTo: {to_addr}\nSubject: {subject}\n\n{text_body}"
@@ -574,7 +578,7 @@ def parse_email():
             subject,
             text_body,
             email_body,
-            urls,
+            urls_array,
             datetime.now(),
             spam_score
         ))
