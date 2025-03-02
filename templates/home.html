@@ -17,6 +17,7 @@
         body {
             background-color: #f5f5f7;
             color: #1d1d1f;
+            overflow-y: auto; /* Ensure the page is scrollable */
         }
         
         .navbar {
@@ -235,6 +236,8 @@
             padding: 1.5rem;
             margin-bottom: 2rem;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            max-height: 400px; /* Add a maximum height */
+            overflow: hidden; /* Prevent content from overflowing */
         }
         
         .chart-header {
@@ -410,7 +413,8 @@
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: false,
+                maintainAspectRatio: true, /* Change to true to maintain aspect ratio */
+                aspectRatio: 2, /* Set a specific aspect ratio */
                 scales: {
                     y: {
                         beginAtZero: true,
