@@ -466,7 +466,15 @@
                         {% for email in emails %}
                         <tr onclick="window.location.href='/emails/view/{{ email.id }}'">
                             <td>{{ email.display_name if email.display_name else email.source_name }}</td>
-                            <td>{{ email.from_address }}</td>
+                            <td>
+                                {% if '"' in email.from_address %}
+                                    {{ email.from_address.split('"')[1] }}
+                                {% elif '<' in email.from_address %}
+                                    {{ email.from_address.split('<')[0].strip() }}
+                                {% else %}
+                                    {{ email.from_address }}
+                                {% endif %}
+                            </td>
                             <td>{{ email.subject }}</td>
                             <td>{{ email.received_at.strftime('%Y-%m-%d') }}</td>
                         </tr>
