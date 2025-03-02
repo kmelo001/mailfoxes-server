@@ -605,6 +605,95 @@ def parse_email():
         print(f"Error processing email: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route('/inbox')
+def new_inbox():
+    """Render the new inbox page."""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=DictCursor)
+        
+        # Get all non-hidden sources
+        cur.execute('''
+            SELECT * FROM email_sources 
+            WHERE hidden = FALSE OR hidden IS NULL
+            ORDER BY display_name NULLS LAST, name
+        ''')
+            
+        sources = cur.fetchall()
+        
+        # Get current source from query params or default to 'all'
+        current_source = request.args.get('source', 'all')
+        if current_source != 'all':
+            current_source = int(current_source)
+        
+        # Get filter parameters
+        competitor = request.args.get('competitor', 'all')
+        tag = request.args.get('tag', '-')
+        keyword_type = request.args.get('keyword_type', 'subject')
+        keyword = request.args.get('keyword', '')
+        start_date = request.args.get('start_date', '')
+        end_date = request.args.get('end_date', '')
+        
+        # Build query based on filters
+        query = 'SELECT e.*, s.name as source_name FROM emails e LEFT JOIN email_sources s ON e.source_id = s.id'
+        params = []
+        where_clauses = []
+        
+        # Add source/competitor filter
+        if competitor != 'all':
+            where_clauses.append('e.source_id = %s')
+            params.append(competitor)
+        
+        # Add keyword filter
+        if keyword:
+            if keyword_type == 'subject':
+                where_clauses.append('e.subject ILIKE %s')
+                params.append(f'%{keyword}%')
+            elif keyword_type == 'body':
+                where_clauses.append('e.body_text ILIKE %s')
+                params.append(f'%{keyword}%')
+            else:  # All fields
+                where_clauses.append('(e.subject ILIKE %s OR e.body_text ILIKE %s)')
+                params.append(f'%{keyword}%')
+                params.append(f'%{keyword}%')
+        
+        # Add date filters
+        if start_date:
+            where_clauses.append('e.received_at >= %s')
+            params.append(start_date)
+        
+        if end_date:
+            where_clauses.append('e.received_at <= %s')
+            params.append(end_date)
+        
+        # Combine where clauses
+        if where_clauses:
+            query += ' WHERE ' + ' AND '.join(where_clauses)
+        
+        # Add order and limit
+        query += ' ORDER BY e.received_at DESC LIMIT 100'
+        
+        # Execute query
+        cur.execute(query, params)
+        emails = cur.fetchall()
+        
+        # Close connection
+        cur.close()
+        conn.close()
+        
+        # Process emails
+        emails_list = [process_email_data(dict(email)) for email in emails]
+        sources_list = [dict(source) for source in sources]
+        
+        return render_template('new_inbox.html',
+                             emails=emails_list,
+                             sources=sources_list,
+                             current_source=current_source)
+    
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        return str(e), 500
+
 @app.route('/emails/view')
 def view_emails_html():
     """Render the main email dashboard."""
