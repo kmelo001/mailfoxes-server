@@ -463,7 +463,7 @@
                     {% if emails %}
                         {% for email in emails %}
                         <tr onclick="window.location.href='/emails/view/{{ email.id }}'">
-                            <td>{{ email.source_name }}</td>
+                            <td>{{ email.display_name if email.display_name else email.source_name }}</td>
                             <td>{{ email.from_address }}</td>
                             <td>{{ email.subject }}</td>
                             <td>{{ email.received_at.strftime('%Y-%m-%d') }}</td>

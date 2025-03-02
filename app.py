@@ -635,7 +635,7 @@ def new_inbox():
         end_date = request.args.get('end_date', '')
         
         # Build query based on filters
-        query = 'SELECT e.*, s.name as source_name FROM emails e LEFT JOIN email_sources s ON e.source_id = s.id'
+        query = 'SELECT e.*, s.name as source_name, s.display_name FROM emails e LEFT JOIN email_sources s ON e.source_id = s.id'
         params = []
         where_clauses = []
         
