@@ -449,6 +449,19 @@
             flex: 1;
         }
         
+        /* Ensure email content doesn't affect parent container */
+        .modal-content * {
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+            width: auto !important;
+        }
+        
+        /* Special handling for tables in emails */
+        .modal-content table {
+            table-layout: auto !important;
+            width: 100% !important;
+        }
+        
         .modal-content img {
             max-width: 100%;
             height: auto;
@@ -795,6 +808,11 @@
                 document.getElementById('modalSender').textContent = sender;
                 document.getElementById('modalDate').textContent = date;
                 document.getElementById('modalContent').innerHTML = content;
+                
+                // Log when we're displaying an Agora France email
+                if (sender.includes("Agora France") || sender.includes("La Bourse au Quotidien")) {
+                    console.log("Displaying Agora France email - CSS rules will handle layout");
+                }
                 
                 // Try to extract metrics from the HTML content
                 try {
