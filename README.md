@@ -72,3 +72,32 @@ python count_emails.py
 - Regularly rotate API tokens and database passwords
 - Use HTTPS for all production traffic
 - Implement proper authentication for user access
+
+## Features in Development
+
+### AI Email Search (Beta)
+
+A new AI-powered email search feature has been implemented that allows users to search and analyze emails using natural language queries. This feature is currently in beta testing and is not yet available on the home page.
+
+#### Key Features:
+- Search emails from the past 7 days using natural language queries
+- Filter search by email source
+- Two analysis modes:
+  - **Search Mode**: Standard analysis providing basic insights
+  - **Deep Research Mode**: Comprehensive analysis with detailed insights
+
+#### Technical Implementation:
+- Frontend: Modern search interface with source selection and mode options
+- Backend: Flask API endpoint that retrieves emails and processes them with LLM
+- LLM Integration: Uses DeepSeek API for email analysis
+- Token Management: Implements token counting to handle large email volumes
+- Caching: Caches analysis results to improve performance
+
+#### How to Access:
+The feature is accessible at `/email-search` but is not linked from the home page during testing.
+
+#### Future Improvements:
+- Streaming responses for faster feedback
+- Enhanced analysis capabilities
+- Better error handling and fallbacks
+- UI refinements based on user feedback
