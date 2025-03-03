@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Email Search & Analysis - Mailfoxes</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        body {
+            background-color: white;
+            color: #1d1d1f;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        
+        .navbar {
+            background-color: #000000;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #333;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+            z-index: 1000;
+        }
+        
+        .nav-brand {
+            font-size: 1.3rem;
+            font-weight: 500;
+            color: white;
+            letter-spacing: -0.02em;
+            display: flex;
+            align-items: center;
+        }
+        
+        .nav-brand i {
+            margin-right: 10px;
+            color: #0066cc;
+        }
+        
+        .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .nav-link {
+            color: white;
+            text-decoration: none;
+            font-size: 0.9rem;
+            padding: 0.5rem 0.8rem;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+        
+        .nav-link:hover {
+            background-color: #333;
+        }
+        
+        .nav-link.active {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 2rem;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+        
+        .page-title {
+            font-size: 2rem;
+            font-weight: 600;
+            color: #1d1d1f;
+        }
+        
+        .search-container {
+            max-width: 900px;
+            margin: 2rem auto;
+            text-align: center;
+        }
+        
+        .search-title {
+            font-size: 2.5rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            color: #1d1d1f;
+        }
+        
+        .search-subtitle {
+            font-size: 1.2rem;
+            color: #6e6e73;
+            margin-bottom: 2.5rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .search-box {
+            position: relative;
+            margin-bottom: 2rem;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 1.2rem 1.5rem;
+            padding-right: 4rem;
+            font-size: 1.1rem;
+            border: 1px solid #d2d2d7;
+            border-radius: 12px;
+            outline: none;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        
+        .search-input:focus {
+            border-color: #0066cc;
+            box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.1);
+        }
+        
+        .search-button {
+            position: absolute;
+            right: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background-color: #0066cc;
+            color: white;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .search-button:hover {
+            background-color: #0055aa;
+        }
+        
+        .search-options {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .search-option {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.6rem 1.2rem;
+            background-color: #f5f5f7;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .search-option:hover {
+            background-color: #e5e5ea;
+        }
+        
+        .search-option.active {
+            background-color: #0066cc;
+            color: white;
+        }
+        
+        .search-option i {
+            font-size: 0.9rem;
+        }
+        
+        .search-option span {
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        
+        .results-container {
+            margin-top: 2rem;
+            text-align: left;
+            display: none;
+        }
+        
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e5e5ea;
+        }
+        
+        .results-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1d1d1f;
+        }
+        
+        .results-meta {
+            font-size: 0.9rem;
+            color: #6e6e73;
+        }
+        
+        .results-content {
+            background-color: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            margin-bottom: 2rem;
+        }
+        
+        .results-section {
+            margin-bottom: 1.5rem;
+        }
+        
+        .results-section-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #1d1d1f;
+            margin-bottom: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .results-section-title i {
+            color: #0066cc;
+        }
+        
+        .results-section-content {
+            font-size: 1rem;
+            line-height: 1.6;
+            color: #1d1d1f;
+        }
+        
+        .results-section-content p {
+            margin-bottom: 1rem;
+        }
+        
+        .results-section-content ul {
+            margin-left: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .results-section-content li {
+            margin-bottom: 0.5rem;
+        }
+        
+        .loading-container {
+            display: none;
+            text-align: center;
+            margin: 3rem 0;
+        }
+        
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #0066cc;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1.5rem;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .loading-text {
+            font-size: 1.2rem;
+            color: #6e6e73;
+        }
+        
+        .error-container {
+            display: none;
+            text-align: center;
+            margin: 3rem 0;
+            color: #ff3b30;
+        }
+        
+        .error-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        
+        .error-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        .error-message {
+            font-size: 1rem;
+            color: #6e6e73;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        
+        .source-selector {
+            margin-bottom: 2rem;
+        }
+        
+        .source-label {
+            display: block;
+            font-size: 1rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            text-align: left;
+        }
+        
+        .source-select {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            font-size: 1rem;
+            border: 1px solid #d2d2d7;
+            border-radius: 8px;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+        
+        .source-select:focus {
+            border-color: #0066cc;
+            box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+        }
+        
+        @media (max-width: 768px) {
+            .search-options {
+                flex-wrap: wrap;
+            }
+            
+            .search-title {
+                font-size: 2rem;
+            }
+            
+            .search-subtitle {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <a href="/" style="text-decoration: none;">
+            <div class="nav-brand">
+                <i class="fas fa-envelope"></i>
+                Mailfoxes
+            </div>
+        </a>
+        <div class="nav-actions">
+            <a href="/" class="nav-link">Home</a>
+            <a href="/inbox" class="nav-link">Inbox</a>
+            <a href="/emails/view" class="nav-link">Sequences</a>
+            <a href="/email-search" class="nav-link active">Email Search</a>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <div class="search-container">
+            <h1 class="search-title">What can I help with?</h1>
+            <p class="search-subtitle">Search and analyze your emails from the past 7 days using AI</p>
+            
+            <div class="source-selector">
+                <label class="source-label">Select email source:</label>
+                <select id="sourceSelect" class="source-select">
+                    <option value="all">All Sources</option>
+                    {% for source in sources %}
+                    <option value="{{ source.id }}">{{ source.display_name or source.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="search-box">
+                <input type="text" id="searchInput" class="search-input" placeholder="Ask anything about your emails...">
+                <button id="searchButton" class="search-button">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+            
+            <div class="search-options">
+                <div class="search-option active" data-type="search">
+                    <i class="fas fa-search"></i>
+                    <span>Search</span>
+                </div>
+                <div class="search-option" data-type="deep-research">
+                    <i class="fas fa-microscope"></i>
+                    <span>Deep research</span>
+                </div>
+            </div>
+            
+            <div class="loading-container" id="loadingContainer">
+                <div class="loading-spinner"></div>
+                <div class="loading-text">Analyzing your emails...</div>
+            </div>
+            
+            <div class="error-container" id="errorContainer">
+                <div class="error-icon">
+                    <i class="fas fa-exclamation-circle"></i>
+                </div>
+                <div class="error-title">Something went wrong</div>
+                <div class="error-message" id="errorMessage">We couldn't analyze your emails. Please try again later.</div>
+            </div>
+            
+            <div class="results-container" id="resultsContainer">
+                <div class="results-header">
+                    <div class="results-title">Email Analysis Results</div>
+                    <div class="results-meta" id="resultsMeta">Based on 0 emails from the past 7 days</div>
+                </div>
+                
+                <div class="results-content" id="resultsContent">
+                    <!-- Results will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('searchInput');
+            const searchButton = document.getElementById('searchButton');
+            const sourceSelect = document.getElementById('sourceSelect');
+            const searchOptions = document.querySelectorAll('.search-option');
+            const loadingContainer = document.getElementById('loadingContainer');
+            const errorContainer = document.getElementById('errorContainer');
+            const resultsContainer = document.getElementById('resultsContainer');
+            const resultsContent = document.getElementById('resultsContent');
+            const resultsMeta = document.getElementById('resultsMeta');
+            const errorMessage = document.getElementById('errorMessage');
+            
+            let searchType = 'search'; // Default search type
+            
+            // Handle search option selection
+            searchOptions.forEach(option => {
+                option.addEventListener('click', function() {
+                    searchOptions.forEach(opt => opt.classList.remove('active'));
+                    this.classList.add('active');
+                    searchType = this.getAttribute('data-type');
+                });
+            });
+            
+            // Handle search button click
+            searchButton.addEventListener('click', performSearch);
+            
+            // Handle Enter key press in search input
+            searchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    performSearch();
+                }
+            });
+            
+            function performSearch() {
+                const query = searchInput.value.trim();
+                const sourceId = sourceSelect.value;
+                
+                if (!query) {
+                    return;
+                }
+                
+                // Show loading, hide results and error
+                loadingContainer.style.display = 'block';
+                resultsContainer.style.display = 'none';
+                errorContainer.style.display = 'none';
+                
+                // Make API request
+                fetch('/api/email-search', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        query: query,
+                        source_id: sourceId === 'all' ? null : parseInt(sourceId),
+                        search_type: searchType,
+                        days: 7 // 7 days
+                    }),
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Hide loading
+                    loadingContainer.style.display = 'none';
+                    
+                    // Update results meta
+                    resultsMeta.textContent = `Based on ${data.email_count} emails from the past 7 days`;
+                    
+                    // Format and display results
+                    displayResults(data.analysis);
+                    
+                    // Show results
+                    resultsContainer.style.display = 'block';
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    
+                    // Hide loading
+                    loadingContainer.style.display = 'none';
+                    
+                    // Show error
+                    errorMessage.textContent = 'We couldn\'t analyze your emails. Please try again later.';
+                    errorContainer.style.display = 'block';
+                });
+            }
+            
+            function displayResults(analysis) {
+                // Clear previous results
+                resultsContent.innerHTML = '';
+                
+                // Check if analysis is a string or an object
+                if (typeof analysis === 'string') {
+                    // If it's a string, display it directly
+                    resultsContent.innerHTML = formatAnalysisText(analysis);
+                } else {
+                    // If it's an object, format each section
+                    for (const [key, value] of Object.entries(analysis)) {
+                        const sectionTitle = formatSectionTitle(key);
+                        const sectionIcon = getSectionIcon(key);
+                        
+                        const sectionHTML = `
+                            <div class="results-section">
+                                <div class="results-section-title">
+                                    <i class="${sectionIcon}"></i>
+                                    ${sectionTitle}
+                                </div>
+                                <div class="results-section-content">
+                                    ${formatAnalysisText(value)}
+                                </div>
+                            </div>
+                        `;
+                        
+                        resultsContent.innerHTML += sectionHTML;
+                    }
+                }
+            }
+            
+            function formatSectionTitle(key) {
+                // Convert snake_case or camelCase to Title Case
+                return key
+                    .replace(/_/g, ' ')
+                    .replace(/([A-Z])/g, ' $1')
+                    .replace(/^./, str => str.toUpperCase())
+                    .trim();
+            }
+            
+            function getSectionIcon(key) {
+                // Return appropriate icon based on section key
+                const iconMap = {
+                    'themes': 'fas fa-tags',
+                    'topics': 'fas fa-list',
+                    'sentiment': 'fas fa-smile',
+                    'promotions': 'fas fa-bullhorn',
+                    'summary': 'fas fa-file-alt',
+                    'main_themes': 'fas fa-tags',
+                    'overall_sentiment': 'fas fa-smile',
+                    'key_promotions': 'fas fa-bullhorn',
+                    'notable_patterns': 'fas fa-chart-line'
+                };
+                
+                return iconMap[key.toLowerCase()] || 'fas fa-info-circle';
+            }
+            
+            function formatAnalysisText(text) {
+                // Convert plain text to HTML with paragraphs and lists
+                return text
+                    .replace(/\n\n/g, '</p><p>')
+                    .replace(/\n- /g, '</p><ul><li>')
+                    .replace(/\n  - /g, '</li><li>')
+                    .replace(/<\/li><\/p>/g, '</li></ul><p>')
+                    .replace(/^/, '<p>')
+                    .replace(/$/, '</p>');
+            }
+        });
+    </script>
+</body>
+</html>

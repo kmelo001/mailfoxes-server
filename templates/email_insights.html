@@ -253,86 +253,41 @@
         document.getElementById('analyze-button').addEventListener('click', function() {
             // Show loading indicator
             document.getElementById('loading').style.display = 'block';
+            document.getElementById('results-container').style.display = 'none';
             
-            // Clear previous results and show container
-            document.getElementById('results-container').style.display = 'block';
-            document.getElementById('analysis-content').textContent = '';
-            
-            // Set up event source for streaming
-            const eventSource = new EventSource('/api/analyze-emails-stream');
-            
-            // Handle incoming data chunks
-            eventSource.onmessage = function(event) {
-                try {
-                    const data = JSON.parse(event.data);
-                    
-                    // Hide loading indicator after first chunk
-                    document.getElementById('loading').style.display = 'none';
-                    
-                    if (data.content) {
-                        // Append new content
-                        document.getElementById('analysis-content').textContent += data.content;
-                    }
-                    
-                    if (data.done) {
-                        // Close the connection when done
-                        eventSource.close();
-                        
-                        // Update email count
-                        fetch('/api/analyze-emails', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            }
-                        })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (!data.error) {
-                                document.getElementById('email-count').textContent = 
-                                    `Analyzed ${data.email_count} emails from the past 3 days`;
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error fetching email count:', error);
-                        });
-                    }
-                } catch (error) {
-                    console.error('Error parsing event data:', error);
+            // Call the API
+            fetch('/api/analyze-emails', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
                 }
-            };
-            
-            // Handle errors
-            eventSource.onerror = function(error) {
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        throw new Error(`Server error (${response.status}): ${text}`);
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Hide loading indicator
                 document.getElementById('loading').style.display = 'none';
                 
-                // Try to get a more detailed error
-                fetch('/api/analyze-emails', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        return response.text().then(text => {
-                            throw new Error(`Server error (${response.status}): ${text}`);
-                        });
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.error) {
-                        alert('Error: ' + data.error);
-                    } else {
-                        alert('Error: Connection to server lost. Please try again.');
-                    }
-                })
-                .catch(error => {
-                    alert('Error: ' + error.message);
-                });
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
                 
-                eventSource.close();
-            };
+                // Show results
+                document.getElementById('results-container').style.display = 'block';
+                document.getElementById('email-count').textContent = `Analyzed ${data.email_count} emails from the past 3 days`;
+                document.getElementById('analysis-content').textContent = data.analysis;
+            })
+            .catch(error => {
+                document.getElementById('loading').style.display = 'none';
+                alert('Error: ' + error.message);
+            });
         });
     </script>
 </body>
