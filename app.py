@@ -892,18 +892,26 @@ def view_single_email(email_id):
         print(f"Error: {str(e)}")
         return str(e), 500
 
-def get_recent_emails(days=7):
-    """Get emails from the past X days."""
+def get_recent_emails(days=7, source_id=None):
+    """Get emails from the past X days, optionally filtered by source."""
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=DictCursor)
     
-    cur.execute("""
+    query = """
         SELECT e.*, s.name as source_name, s.display_name 
         FROM emails e
         LEFT JOIN email_sources s ON e.source_id = s.id
         WHERE e.received_at >= NOW() - INTERVAL '%s days'
-        ORDER BY e.received_at DESC
-    """, (days,))
+    """
+    params = [days]
+    
+    if source_id:
+        query += " AND e.source_id = %s"
+        params.append(source_id)
+    
+    query += " ORDER BY e.received_at DESC"
+    
+    cur.execute(query, params)
     
     emails = [dict(email) for email in cur.fetchall()]
     cur.close()
@@ -918,10 +926,13 @@ def analyze_emails_with_llm(emails):
     from datetime import datetime
     import hashlib
     
-    # Create a cache key based on the time range
+    # Create a cache key based on the time range and source
+    source_ids = set([email.get('source_id') for email in emails if email.get('source_id')])
+    source_key = '_'.join([str(sid) for sid in sorted(source_ids)]) if source_ids else 'all'
+    
     oldest = min([email['received_at'] for email in emails], default=datetime.now())
     newest = max([email['received_at'] for email in emails], default=datetime.now())
-    cache_key = f"email_analysis_{oldest.strftime('%Y%m%d')}_{newest.strftime('%Y%m%d')}"
+    cache_key = f"email_analysis_{source_key}_{oldest.strftime('%Y%m%d')}_{newest.strftime('%Y%m%d')}"
     cache_key = hashlib.md5(cache_key.encode()).hexdigest()
     
     # Check if we have a cached result
@@ -935,15 +946,22 @@ def analyze_emails_with_llm(emails):
         conn.close()
         return json.loads(cached[0])
     
-    # Prepare email data for the LLM
+    # Prepare email data for the LLM with truncated content to avoid token limits
     email_data = []
+    max_text_length = 1000  # Limit text content to avoid token limit issues
+    
     for email in emails:
+        # Get the text content, truncate if necessary
+        text_content = email.get('body_text', '') or "No text content"
+        if len(text_content) > max_text_length:
+            text_content = text_content[:max_text_length] + "... [content truncated]"
+        
         email_data.append({
             'from': email['from_address'],
             'subject': email['subject'],
             'date': email['received_at'].strftime('%Y-%m-%d %H:%M:%S'),
             'source': email.get('display_name') or email.get('source_name'),
-            'text': email['body_text'] if email['body_text'] else "No text content"
+            'text': text_content
         })
     
     # Create a prompt for the LLM
@@ -1000,11 +1018,11 @@ def email_insights():
 def analyze_emails():
     """API endpoint to analyze emails with LLM."""
     try:
-        # Get emails from the past 7 days
-        emails = get_recent_emails(days=7)
+        # Get emails from the past 7 days for Marketbeat (source_id=2)
+        emails = get_recent_emails(days=7, source_id=2)
         
         if not emails:
-            return jsonify({"error": "No emails found in the past 7 days"}), 404
+            return jsonify({"error": "No Marketbeat emails found in the past 7 days"}), 404
         
         # Analyze emails with LLM
         analysis = analyze_emails_with_llm(emails)
