@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Email Popup Demo</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        body {
+            background-color: #f5f5f7;
+            color: #1d1d1f;
+            padding: 2rem;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 2rem;
+        }
+        
+        h1 {
+            font-size: 2rem;
+            font-weight: 600;
+            color: #1d1d1f;
+            margin-bottom: 2rem;
+        }
+        
+        .emails-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 2rem;
+        }
+        
+        .emails-table th {
+            text-align: left;
+            padding: 1rem 1.5rem;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #1d1d1f;
+            border-bottom: 1px solid #e5e5e5;
+            background-color: #f5f5f7;
+        }
+        
+        .emails-table td {
+            padding: 1rem 1.5rem;
+            font-size: 0.9rem;
+            color: #1d1d1f;
+            border-bottom: 1px solid #e5e5e5;
+        }
+        
+        .emails-table tr:hover {
+            background-color: #f5f5f7;
+            cursor: pointer;
+        }
+        
+        /* Modal Overlay */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        /* Modal Container */
+        .modal-container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            width: 90%;
+            max-width: 900px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* Modal Header */
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #e5e5e5;
+            position: relative;
+        }
+        
+        .modal-close {
+            position: absolute;
+            top: 1.5rem;
+            right: 1.5rem;
+            font-size: 1.2rem;
+            color: #6e6e73;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+        
+        .modal-close:hover {
+            color: #1d1d1f;
+        }
+        
+        .modal-title {
+            font-size: 1.4rem;
+            font-weight: 500;
+            color: #1d1d1f;
+            margin-bottom: 0.8rem;
+            padding-right: 2rem;
+            line-height: 1.3;
+        }
+        
+        .modal-subtitle {
+            font-size: 0.9rem;
+            color: #6e6e73;
+            margin-bottom: 0.5rem;
+        }
+        
+        /* Modal Metrics */
+        .modal-metrics {
+            padding: 1rem 1.5rem;
+            background-color: #f5f5f7;
+            border-bottom: 1px solid #e5e5e5;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .metric-group {
+            display: flex;
+            flex-direction: column;
+            min-width: 120px;
+        }
+        
+        .metric-label {
+            font-size: 0.8rem;
+            color: #6e6e73;
+            margin-bottom: 0.3rem;
+        }
+        
+        .metric-value {
+            font-size: 1rem;
+            font-weight: 500;
+            color: #1d1d1f;
+        }
+        
+        /* Modal Content */
+        .modal-content {
+            padding: 1.5rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+        
+        .modal-content img {
+            max-width: 100%;
+            height: auto;
+        }
+        
+        /* Loading Indicator */
+        .loading-spinner {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+        
+        .spinner {
+            border: 3px solid #f5f5f7;
+            border-top: 3px solid #0066cc;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Responsive Adjustments */
+        @media (max-width: 768px) {
+            .modal-container {
+                width: 95%;
+                max-height: 95vh;
+            }
+            
+            .modal-metrics {
+                flex-direction: column;
+                gap: 0.8rem;
+            }
+            
+            .metric-group {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Email Popup Demo</h1>
+        
+        <table class="emails-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>From Name</th>
+                    <th>Subject Line</th>
+                    <th>Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr onclick="openEmailModal(1)">
+                    <td>Marketbeat - Free</td>
+                    <td>The Early Bird 🔆</td>
+                    <td>Today's Stock of the Day</td>
+                    <td>2025-03-03</td>
+                </tr>
+                <tr onclick="openEmailModal(2)">
+                    <td>Marketbeat - Free</td>
+                    <td>MarketBeat</td>
+                    <td>How this 3-cent coin is going to outperform Bitcoin</td>
+                    <td>2025-03-03</td>
+                </tr>
+                <tr onclick="openEmailModal(3)">
+                    <td>Agora France - Free</td>
+                    <td>La Bourse au Quotidien</td>
+                    <td>Rexel : la plus opéable des valeurs françaises ?</td>
+                    <td>2025-03-03</td>
+                </tr>
+            </tbody>
+        </table>
+        
+        <p>Click on any email row to open the popup.</p>
+    </div>
+    
+    <!-- Email Modal Popup -->
+    <div id="emailModal" class="modal-overlay">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h2 id="modalTitle" class="modal-title">Loading...</h2>
+                <div id="modalSender" class="modal-subtitle">From: </div>
+                <div id="modalDate" class="modal-subtitle">Date: </div>
+                <div class="modal-close" onclick="closeEmailModal()">
+                    <i class="fas fa-times"></i>
+                </div>
+            </div>
+            <div class="modal-metrics">
+                <div class="metric-group">
+                    <div class="metric-label">Subject Length</div>
+                    <div id="subjectLength" class="metric-value">-</div>
+                </div>
+                <div class="metric-group">
+                    <div class="metric-label">Word Count</div>
+                    <div id="wordCount" class="metric-value">-</div>
+                </div>
+                <div class="metric-group">
+                    <div class="metric-label">Link Count</div>
+                    <div id="linkCount" class="metric-value">-</div>
+                </div>
+                <div class="metric-group">
+                    <div class="metric-label">Spam Score</div>
+                    <div id="spamScore" class="metric-value">-</div>
+                </div>
+            </div>
+            <div id="modalContent" class="modal-content">
+                <div class="loading-spinner">
+                    <div class="spinner"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Sample email data for demo
+        const emailData = {
+            1: {
+                subject: "Today's Stock of the Day",
+                sender: "From: The Early Bird 🔆 <insidertrades@analystratings.net>",
+                date: "Mon, Mar 03, 2025 - 11:30AM",
+                content: `
+                    <p>Good day,</p>
+                    <p>We are excited to introduce you to a new way to receive The Early Bird's "Stock of the Day" a day before the stock idea shows up in The Early Bird's email newsletter.</p>
+                    <p>Our free "Stock of the Day" service is delivered via SMS so that you can see each stock pick right away.</p>
+                    <p>Each morning, you'll receive:</p>
+                    <ul>
+                        <li>Actionable stock picks, hand selected by MarketBeat's team of expert research analysts</li>
+                        <li>Detailed analysis of why each stock was selected</li>
+                        <li>Price targets and growth projections</li>
+                    </ul>
+                    <p>Click <a href="#">here</a> to sign up for free.</p>
+                `,
+                metrics: {
+                    subject_length: 24,
+                    word_count: 348,
+                    link_count: 8,
+                    spam_score: 3.9
+                }
+            },
+            2: {
+                subject: "How this 3-cent coin is going to outperform Bitcoin",
+                sender: "From: MarketBeat <info@marketbeat.com>",
+                date: "Mon, Mar 03, 2025 - 10:15AM",
+                content: `
+                    <p>Dear Investor,</p>
+                    <p>While everyone is focused on Bitcoin's price movements, we've identified a little-known cryptocurrency that's trading for just pennies right now.</p>
+                    <p>Our analysis suggests this coin could outperform Bitcoin by as much as 10x in the coming months due to its revolutionary technology and growing adoption.</p>
+                    <p>Here's why we're bullish:</p>
+                    <ul>
+                        <li>Faster transaction speeds than Bitcoin</li>
+                        <li>Lower energy consumption</li>
+                        <li>Growing institutional interest</li>
+                        <li>Partnerships with major financial institutions</li>
+                    </ul>
+                    <p>Read our <a href="#">full analysis here</a>.</p>
+                `,
+                metrics: {
+                    subject_length: 56,
+                    word_count: 275,
+                    link_count: 5,
+                    spam_score: 4.2
+                }
+            },
+            3: {
+                subject: "Rexel : la plus opéable des valeurs françaises ?",
+                sender: "From: La Bourse au Quotidien <info@labourseauquotidien.fr>",
+                date: "Mon, Mar 03, 2025 - 09:45AM",
+                content: `
+                    <p>Chers lecteurs,</p>
+                    <p>Aujourd'hui, nous analysons Rexel, une entreprise qui pourrait devenir la cible d'une opération de rachat dans les mois à venir.</p>
+                    <p>Plusieurs facteurs rendent cette société particulièrement attractive :</p>
+                    <ul>
+                        <li>Une valorisation attractive (P/E de 12,5)</li>
+                        <li>Une position dominante sur le marché de la distribution de matériel électrique</li>
+                        <li>Des synergies potentielles importantes pour un acquéreur industriel</li>
+                        <li>Une structure actionnariale favorable à une prise de contrôle</li>
+                    </ul>
+                    <p>Notre analyse complète est <a href="#">disponible ici</a>.</p>
+                `,
+                metrics: {
+                    subject_length: 48,
+                    word_count: 230,
+                    link_count: 3,
+                    spam_score: 2.8
+                }
+            }
+        };
+        
+        // Function to open the email modal
+        function openEmailModal(emailId) {
+            // Get email data
+            const email = emailData[emailId];
+            if (!email) {
+                console.error('Email not found:', emailId);
+                return;
+            }
+            
+            // Show the modal
+            const modal = document.getElementById('emailModal');
+            modal.style.display = 'flex';
+            
+            // Update modal with email data
+            document.getElementById('modalTitle').textContent = email.subject;
+            document.getElementById('modalSender').textContent = email.sender;
+            document.getElementById('modalDate').textContent = email.date;
+            document.getElementById('modalContent').innerHTML = email.content;
+            
+            // Update metrics
+            document.getElementById('subjectLength').textContent = email.metrics.subject_length;
+            document.getElementById('wordCount').textContent = email.metrics.word_count;
+            document.getElementById('linkCount').textContent = email.metrics.link_count;
+            document.getElementById('spamScore').textContent = email.metrics.spam_score.toFixed(1);
+            
+            // Prevent scrolling on the body
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Function to close the email modal
+        function closeEmailModal() {
+            document.getElementById('emailModal').style.display = 'none';
+            // Re-enable scrolling on the body
+            document.body.style.overflow = '';
+        }
+        
+        // Add event listeners when the DOM is fully loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Close modal when clicking outside the content
+            document.getElementById('emailModal').addEventListener('click', function(event) {
+                if (event.target === this) {
+                    closeEmailModal();
+                }
+            });
+            
+            // Close modal with Escape key
+            document.addEventListener('keydown', function(event) {
+                if (event.key === 'Escape' && document.getElementById('emailModal').style.display === 'flex') {
+                    closeEmailModal();
+                }
+            });
+        });
+    </script>
+</body>
+</html>

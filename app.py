@@ -1281,6 +1281,37 @@ def analyze_emails_with_custom_prompt(emails, prompt, stream=False):
             conn.close()
         return f"Error calling DeepSeek API: {str(e)}"
 
+@app.route('/api/email-metrics/<int:email_id>', methods=['GET'])
+def get_email_metrics(email_id):
+    """API endpoint to get metrics for a specific email."""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor(cursor_factory=DictCursor)
+        cur.execute('SELECT * FROM emails WHERE id = %s', (email_id,))
+        email = cur.fetchone()
+        cur.close()
+        conn.close()
+
+        if email is None:
+            return jsonify({"error": "Email not found"}), 404
+
+        # Process email to get metrics
+        email_dict = process_email_data(dict(email))
+        
+        # Return only the metrics
+        metrics = {
+            "subject_length": email_dict.get('subject_length', 0),
+            "word_count": email_dict.get('word_count', 0),
+            "link_count": email_dict.get('link_count', 0),
+            "spam_score": email_dict.get('spam_score', 0)
+        }
+        
+        return jsonify(metrics)
+    
+    except Exception as e:
+        print(f"Error getting email metrics: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/analyze-emails', methods=['POST'])
 def analyze_emails():
     """API endpoint to analyze emails with LLM."""

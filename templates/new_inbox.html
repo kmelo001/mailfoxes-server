@@ -347,6 +347,187 @@
             }
         }
     </style>
+    
+    <!-- Modal Popup Styles -->
+    <style>
+        /* Modal Overlay */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        /* Modal Container */
+        .modal-container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            width: 90%;
+            max-width: 900px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* Modal Header */
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #e5e5e5;
+            position: relative;
+        }
+        
+        .modal-close {
+            position: absolute;
+            top: 1.5rem;
+            right: 1.5rem;
+            font-size: 1.2rem;
+            color: #6e6e73;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+        
+        .modal-close:hover {
+            color: #1d1d1f;
+        }
+        
+        .modal-title {
+            font-size: 1.4rem;
+            font-weight: 500;
+            color: #1d1d1f;
+            margin-bottom: 0.8rem;
+            padding-right: 2rem;
+            line-height: 1.3;
+        }
+        
+        .modal-subtitle {
+            font-size: 0.9rem;
+            color: #6e6e73;
+            margin-bottom: 0.5rem;
+        }
+        
+        /* Modal Metrics */
+        .modal-metrics {
+            padding: 1rem 1.5rem;
+            background-color: #f5f5f7;
+            border-bottom: 1px solid #e5e5e5;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .metric-group {
+            display: flex;
+            flex-direction: column;
+            min-width: 120px;
+        }
+        
+        .metric-label {
+            font-size: 0.8rem;
+            color: #6e6e73;
+            margin-bottom: 0.3rem;
+        }
+        
+        .metric-value {
+            font-size: 1rem;
+            font-weight: 500;
+            color: #1d1d1f;
+        }
+        
+        /* Modal Content */
+        .modal-content {
+            padding: 1.5rem;
+            overflow-y: auto;
+            flex: 1;
+        }
+        
+        .modal-content img {
+            max-width: 100%;
+            height: auto;
+        }
+        
+        /* Authentication Indicators */
+        .auth-indicators {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        
+        .auth-indicator {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.3rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        
+        .auth-indicator.pass {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+        
+        .auth-indicator.fail {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+        
+        .auth-indicator.neutral {
+            background-color: #f5f5f7;
+            color: #6e6e73;
+        }
+        
+        .auth-indicator i {
+            margin-right: 0.3rem;
+        }
+        
+        /* Loading Indicator */
+        .loading-spinner {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+        }
+        
+        .spinner {
+            border: 3px solid #f5f5f7;
+            border-top: 3px solid #0066cc;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Responsive Adjustments */
+        @media (max-width: 768px) {
+            .modal-container {
+                width: 95%;
+                max-height: 95vh;
+            }
+            
+            .modal-metrics {
+                flex-direction: column;
+                gap: 0.8rem;
+            }
+            
+            .metric-group {
+                width: 100%;
+            }
+        }
+    </style>
 </head>
 <body>
     <nav class="navbar">
@@ -458,7 +639,7 @@
                 <tbody>
                     {% if emails %}
                         {% for email in emails %}
-                        <tr onclick="window.location.href='/emails/view/{{ email.id }}'">
+                        <tr onclick="openEmailModal({{ email.id }})">
                             <td>{{ email.display_name if email.display_name else email.source_name }}</td>
                             <td>
                                 {% if '"' in email.from_address %}
@@ -534,6 +715,150 @@
             {% endif %}
         </div>
     </div>
+    
+    <!-- Email Modal Popup -->
+    <div id="emailModal" class="modal-overlay">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h2 id="modalTitle" class="modal-title">Loading...</h2>
+                <div id="modalSender" class="modal-subtitle">From: </div>
+                <div id="modalDate" class="modal-subtitle">Date: </div>
+                <div class="modal-close" onclick="closeEmailModal()">
+                    <i class="fas fa-times"></i>
+                </div>
+            </div>
+            <div class="modal-metrics">
+                <div class="metric-group">
+                    <div class="metric-label">Subject Length</div>
+                    <div id="subjectLength" class="metric-value">-</div>
+                </div>
+                <div class="metric-group">
+                    <div class="metric-label">Word Count</div>
+                    <div id="wordCount" class="metric-value">-</div>
+                </div>
+                <div class="metric-group">
+                    <div class="metric-label">Link Count</div>
+                    <div id="linkCount" class="metric-value">-</div>
+                </div>
+                <div class="metric-group">
+                    <div class="metric-label">Spam Score</div>
+                    <div id="spamScore" class="metric-value">-</div>
+                </div>
+            </div>
+            <div id="modalContent" class="modal-content">
+                <div class="loading-spinner">
+                    <div class="spinner"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Function to open the email modal
+        function openEmailModal(emailId) {
+            // Show the modal
+            const modal = document.getElementById('emailModal');
+            modal.style.display = 'flex';
+            
+            // Reset content and show loading spinner
+            document.getElementById('modalTitle').textContent = 'Loading...';
+            document.getElementById('modalSender').textContent = 'From: ';
+            document.getElementById('modalDate').textContent = 'Date: ';
+            document.getElementById('subjectLength').textContent = '-';
+            document.getElementById('wordCount').textContent = '-';
+            document.getElementById('linkCount').textContent = '-';
+            document.getElementById('spamScore').textContent = '-';
+            document.getElementById('modalContent').innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
+            
+            // Fetch the email content
+            fetch('/emails/view/' + emailId, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(function(response) { 
+                return response.text(); 
+            })
+            .then(function(html) {
+                // Create a temporary element to parse the HTML
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = html;
+                
+                // Extract email data
+                const subject = tempDiv.querySelector('h2').textContent;
+                const sender = tempDiv.querySelector('.email-sender').textContent;
+                const date = tempDiv.querySelector('.email-timestamp').textContent;
+                const content = tempDiv.querySelector('.preview-content').innerHTML;
+                
+                // Update modal with email data
+                document.getElementById('modalTitle').textContent = subject;
+                document.getElementById('modalSender').textContent = sender;
+                document.getElementById('modalDate').textContent = date;
+                document.getElementById('modalContent').innerHTML = content;
+                
+                // Try to extract metrics from the HTML content
+                try {
+                    // Get subject length
+                    document.getElementById('subjectLength').textContent = subject.length;
+                    
+                    // Try to estimate word count from content
+                    const textContent = tempDiv.querySelector('.preview-content').textContent;
+                    const wordCount = textContent.split(/\s+/).filter(word => word.length > 0).length;
+                    document.getElementById('wordCount').textContent = wordCount;
+                    
+                    // Count links in the HTML
+                    const links = tempDiv.querySelectorAll('.preview-content a');
+                    document.getElementById('linkCount').textContent = links.length;
+                    
+                    // We don't have spam score in the HTML, so leave it as is
+                    // or try to fetch it from the API if available
+                    fetch('/api/email-metrics/' + emailId)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data && data.spam_score) {
+                            document.getElementById('spamScore').textContent = data.spam_score.toFixed(1);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching spam score:', error);
+                    });
+                } catch (error) {
+                    console.error('Error extracting metrics:', error);
+                }
+            })
+            .catch(function(error) { 
+                console.error('Error:', error);
+                document.getElementById('modalContent').innerHTML = '<p>Error loading email content. Please try again.</p>';
+            });
+            
+            // Prevent scrolling on the body
+            document.body.style.overflow = 'hidden';
+        }
+        
+        // Function to close the email modal
+        function closeEmailModal() {
+            document.getElementById('emailModal').style.display = 'none';
+            // Re-enable scrolling on the body
+            document.body.style.overflow = '';
+        }
+        
+        // Add event listeners when the DOM is fully loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Close modal when clicking outside the content
+            document.getElementById('emailModal').addEventListener('click', function(event) {
+                if (event.target === this) {
+                    closeEmailModal();
+                }
+            });
+            
+            // Close modal with Escape key
+            document.addEventListener('keydown', function(event) {
+                if (event.key === 'Escape' && document.getElementById('emailModal').style.display === 'flex') {
+                    closeEmailModal();
+                }
+            });
+        });
+    </script>
     
     <style>
         /* Pagination styles */
