@@ -5,3 +5,4 @@ psycopg2-binary==2.9.7
 spamcheck
 beautifulsoup4==4.12.2
 openai>=1.0.0
+tiktoken>=0.5.0

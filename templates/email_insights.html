@@ -225,8 +225,8 @@
         </div>
         
         <div class="search-container">
-            <h2>Analyze Marketbeat emails from the past 7 days</h2>
-            <p>Get insights on themes, topics, sentiment, and promotions from Marketbeat</p>
+            <h2>Analyze Marketbeat emails from the past 3 days</h2>
+            <p>Get insights on themes, topics, sentiment, and promotions with detailed reasoning</p>
             <div class="search-bar-container">
                 <input type="text" class="search-bar" placeholder="What can I help with?" readonly>
                 <button id="analyze-button" class="search-button">
@@ -274,7 +274,7 @@
                 
                 // Show results
                 document.getElementById('results-container').style.display = 'block';
-                document.getElementById('email-count').textContent = `Analyzed ${data.email_count} emails from the past 7 days`;
+                document.getElementById('email-count').textContent = `Analyzed ${data.email_count} emails from the past 3 days`;
                 document.getElementById('analysis-content').textContent = data.analysis;
             })
             .catch(error => {

@@ -920,11 +920,12 @@ def get_recent_emails(days=7, source_id=None):
     return emails
 
 def analyze_emails_with_llm(emails):
-    """Analyze emails using DeepSeek LLM."""
+    """Analyze emails using DeepSeek LLM with token counting and batching."""
     from openai import OpenAI
     import json
     from datetime import datetime
     import hashlib
+    import tiktoken
     
     # Create a cache key based on the time range and source
     source_ids = set([email.get('source_id') for email in emails if email.get('source_id')])
@@ -946,39 +947,105 @@ def analyze_emails_with_llm(emails):
         conn.close()
         return json.loads(cached[0])
     
-    # Prepare email data for the LLM with truncated content to avoid token limits
-    email_data = []
-    max_text_length = 1000  # Limit text content to avoid token limit issues
+    # Initialize tiktoken for token counting
+    try:
+        encoding = tiktoken.encoding_for_model("gpt-4o")  # Close enough to DeepSeek's tokenizer
+    except:
+        encoding = tiktoken.get_encoding("cl100k_base")  # Fallback encoding
     
-    for email in emails:
-        # Get the text content, truncate if necessary
-        text_content = email.get('body_text', '') or "No text content"
-        if len(text_content) > max_text_length:
-            text_content = text_content[:max_text_length] + "... [content truncated]"
-        
-        email_data.append({
+    # Set token budget (well below the 65,536 limit)
+    MAX_TOKENS = 40000
+    
+    # System prompt with chain-of-thought instructions
+    system_prompt = "You are an expert email analyst. Your task is to analyze a collection of emails and provide detailed insights with your reasoning process clearly shown."
+    
+    # Count tokens in our system prompt
+    system_tokens = len(encoding.encode(system_prompt))
+    
+    # Reserve tokens for the response
+    response_tokens = 8000
+    
+    # Available tokens for email content
+    available_tokens = MAX_TOKENS - system_tokens - response_tokens
+    
+    # Sort emails by date (most recent first)
+    sorted_emails = sorted(emails, key=lambda x: x['received_at'], reverse=True)
+    
+    # Prepare email data with token awareness
+    email_data = []
+    current_tokens = 0
+    
+    for email in sorted_emails:
+        # Create email entry with full content
+        email_entry = {
             'from': email['from_address'],
             'subject': email['subject'],
             'date': email['received_at'].strftime('%Y-%m-%d %H:%M:%S'),
             'source': email.get('display_name') or email.get('source_name'),
-            'text': text_content
-        })
+            'text': email.get('body_text', '') if email.get('body_text') else "No text content"
+        }
+        
+        # Count tokens for this entry
+        entry_json = json.dumps(email_entry)
+        entry_tokens = len(encoding.encode(entry_json))
+        
+        # Check if adding this would exceed our budget
+        if current_tokens + entry_tokens > available_tokens:
+            # We've reached our token limit
+            print(f"Reached token limit after {len(email_data)} emails. Current tokens: {current_tokens}, Entry tokens: {entry_tokens}")
+            break
+        
+        # Add to our batch
+        email_data.append(email_entry)
+        current_tokens += entry_tokens
     
-    # Create a prompt for the LLM
+    print(f"Processing {len(email_data)} emails with approximately {current_tokens} tokens")
+    
+    # Create a prompt for the LLM with chain-of-thought reasoning
     prompt = f"""
-    Analyze the following {len(emails)} emails from the past 7 days and provide a comprehensive summary.
-    
-    Focus on:
-    1. Main themes and topics discussed
-    2. Overall sentiment (positive, negative, neutral)
-    3. Key promotions or offers mentioned
-    4. Recurring patterns or trends
-    5. Notable insights or important information
-    
+    Analyze the following {len(email_data)} emails from the past 3 days and provide a detailed analysis.
+
+    I want to see your step-by-step reasoning process, so please structure your response as follows:
+
+    1. INITIAL OBSERVATIONS:
+       - First impressions of the email dataset
+       - General patterns you notice
+       - Any standout emails or anomalies
+
+    2. THEME ANALYSIS:
+       - List the main themes you identify
+       - For each theme, explain which emails contribute to this theme and why
+       - Your reasoning for grouping these themes together
+
+    3. SENTIMENT ANALYSIS:
+       - Overall sentiment assessment (positive, negative, neutral, mixed)
+       - Evidence from specific emails that supports your sentiment analysis
+       - Any notable shifts in sentiment across emails
+
+    4. PROMOTION & OFFER ANALYSIS:
+       - Key promotions or offers mentioned
+       - How these offers are presented (urgency, value proposition, etc.)
+       - Your assessment of the promotional strategies used
+
+    5. PATTERN RECOGNITION:
+       - Recurring patterns in communication style, timing, or content
+       - How these patterns might influence reader perception
+       - What these patterns reveal about the sender's strategy
+
+    6. FINAL SUMMARY:
+       - Comprehensive summary bringing together all the above analysis
+       - Most important insights that emerged from your analysis
+       - Key takeaways about these emails from the past 3 days
+
     Email data: {json.dumps(email_data, indent=2)}
-    
-    Provide a well-structured analysis that captures the most important aspects of these emails.
     """
+    
+    # Count total tokens in the request
+    total_tokens = system_tokens + len(encoding.encode(prompt))
+    print(f"Total tokens in request: {total_tokens}")
+    
+    if total_tokens > 65000:
+        return f"Error: Token count ({total_tokens}) exceeds maximum limit. Please reduce the number of emails or content size."
     
     # Call the DeepSeek API
     client = OpenAI(
@@ -986,28 +1053,33 @@ def analyze_emails_with_llm(emails):
         base_url="https://api.deepseek.com"
     )
     
-    response = client.chat.completions.create(
-        model="deepseek-reasoner",
-        messages=[
-            {"role": "system", "content": "You are an expert email analyst. Your task is to analyze a collection of emails and provide insightful summaries and patterns."},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=1.0,  # Recommended for data analysis
-        stream=False
-    )
-    
-    result = response.choices[0].message.content
-    
-    # Cache the result
-    cur.execute(
-        "INSERT INTO cache (key, value, created_at) VALUES (%s, %s, NOW()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, created_at = NOW()",
-        (cache_key, json.dumps(result))
-    )
-    conn.commit()
-    cur.close()
-    conn.close()
-    
-    return result
+    try:
+        response = client.chat.completions.create(
+            model="deepseek-reasoner",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=1.0,  # Recommended for data analysis
+            stream=False
+        )
+        
+        result = response.choices[0].message.content
+        
+        # Cache the result
+        cur.execute(
+            "INSERT INTO cache (key, value, created_at) VALUES (%s, %s, NOW()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, created_at = NOW()",
+            (cache_key, json.dumps(result))
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return result
+    except Exception as e:
+        cur.close()
+        conn.close()
+        return f"Error calling DeepSeek API: {str(e)}"
 
 @app.route('/email-insights')
 def email_insights():
@@ -1018,11 +1090,11 @@ def email_insights():
 def analyze_emails():
     """API endpoint to analyze emails with LLM."""
     try:
-        # Get emails from the past 7 days for Marketbeat (source_id=2)
-        emails = get_recent_emails(days=7, source_id=2)
+        # Get emails from the past 3 days for Marketbeat (source_id=2)
+        emails = get_recent_emails(days=3, source_id=2)
         
         if not emails:
-            return jsonify({"error": "No Marketbeat emails found in the past 7 days"}), 404
+            return jsonify({"error": "No Marketbeat emails found in the past 3 days"}), 404
         
         # Analyze emails with LLM
         analysis = analyze_emails_with_llm(emails)
