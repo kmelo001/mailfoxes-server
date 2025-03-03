@@ -892,8 +892,8 @@ def view_single_email(email_id):
         print(f"Error: {str(e)}")
         return str(e), 500
 
-def get_recent_emails(days=7, source_id=None):
-    """Get emails from the past X days, optionally filtered by source."""
+def get_recent_emails(days=7, source_id=None, limit=None):
+    """Get emails from the past X days, optionally filtered by source and limited to a specific count."""
     conn = get_db_connection()
     cur = conn.cursor(cursor_factory=DictCursor)
     
@@ -911,6 +911,10 @@ def get_recent_emails(days=7, source_id=None):
     
     query += " ORDER BY e.received_at DESC"
     
+    if limit:
+        query += " LIMIT %s"
+        params.append(limit)
+    
     cur.execute(query, params)
     
     emails = [dict(email) for email in cur.fetchall()]
@@ -919,33 +923,35 @@ def get_recent_emails(days=7, source_id=None):
     
     return emails
 
-def analyze_emails_with_llm(emails):
-    """Analyze emails using DeepSeek LLM with token counting and batching."""
+def analyze_emails_with_llm(emails, stream=False):
+    """Analyze emails using DeepSeek LLM with token counting and streaming support."""
     from openai import OpenAI
     import json
     from datetime import datetime
     import hashlib
     import tiktoken
     
-    # Create a cache key based on the time range and source
-    source_ids = set([email.get('source_id') for email in emails if email.get('source_id')])
-    source_key = '_'.join([str(sid) for sid in sorted(source_ids)]) if source_ids else 'all'
-    
-    oldest = min([email['received_at'] for email in emails], default=datetime.now())
-    newest = max([email['received_at'] for email in emails], default=datetime.now())
-    cache_key = f"email_analysis_{source_key}_{oldest.strftime('%Y%m%d')}_{newest.strftime('%Y%m%d')}"
-    cache_key = hashlib.md5(cache_key.encode()).hexdigest()
-    
-    # Check if we have a cached result
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT value FROM cache WHERE key = %s AND created_at > NOW() - INTERVAL '1 day'", (cache_key,))
-    cached = cur.fetchone()
-    
-    if cached:
-        cur.close()
-        conn.close()
-        return json.loads(cached[0])
+    # If streaming is enabled, we don't use cache
+    if not stream:
+        # Create a cache key based on the time range and source
+        source_ids = set([email.get('source_id') for email in emails if email.get('source_id')])
+        source_key = '_'.join([str(sid) for sid in sorted(source_ids)]) if source_ids else 'all'
+        
+        oldest = min([email['received_at'] for email in emails], default=datetime.now())
+        newest = max([email['received_at'] for email in emails], default=datetime.now())
+        cache_key = f"email_analysis_{source_key}_{oldest.strftime('%Y%m%d')}_{newest.strftime('%Y%m%d')}"
+        cache_key = hashlib.md5(cache_key.encode()).hexdigest()
+        
+        # Check if we have a cached result
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT value FROM cache WHERE key = %s AND created_at > NOW() - INTERVAL '1 day'", (cache_key,))
+        cached = cur.fetchone()
+        
+        if cached:
+            cur.close()
+            conn.close()
+            return json.loads(cached[0])
     
     # Initialize tiktoken for token counting
     try:
@@ -956,8 +962,8 @@ def analyze_emails_with_llm(emails):
     # Set token budget (well below the 65,536 limit)
     MAX_TOKENS = 40000
     
-    # System prompt with chain-of-thought instructions
-    system_prompt = "You are an expert email analyst. Your task is to analyze a collection of emails and provide detailed insights with your reasoning process clearly shown."
+    # System prompt - simplified
+    system_prompt = "You are an expert email analyst. Analyze the provided email and give insights on themes, sentiment, promotions, and notable patterns."
     
     # Count tokens in our system prompt
     system_tokens = len(encoding.encode(system_prompt))
@@ -1001,42 +1007,14 @@ def analyze_emails_with_llm(emails):
     
     print(f"Processing {len(email_data)} emails with approximately {current_tokens} tokens")
     
-    # Create a prompt for the LLM with chain-of-thought reasoning
+    # Create a simplified prompt for the LLM
     prompt = f"""
-    Analyze the following {len(email_data)} emails from the past 3 days and provide a detailed analysis.
-
-    I want to see your step-by-step reasoning process, so please structure your response as follows:
-
-    1. INITIAL OBSERVATIONS:
-       - First impressions of the email dataset
-       - General patterns you notice
-       - Any standout emails or anomalies
-
-    2. THEME ANALYSIS:
-       - List the main themes you identify
-       - For each theme, explain which emails contribute to this theme and why
-       - Your reasoning for grouping these themes together
-
-    3. SENTIMENT ANALYSIS:
-       - Overall sentiment assessment (positive, negative, neutral, mixed)
-       - Evidence from specific emails that supports your sentiment analysis
-       - Any notable shifts in sentiment across emails
-
-    4. PROMOTION & OFFER ANALYSIS:
-       - Key promotions or offers mentioned
-       - How these offers are presented (urgency, value proposition, etc.)
-       - Your assessment of the promotional strategies used
-
-    5. PATTERN RECOGNITION:
-       - Recurring patterns in communication style, timing, or content
-       - How these patterns might influence reader perception
-       - What these patterns reveal about the sender's strategy
-
-    6. FINAL SUMMARY:
-       - Comprehensive summary bringing together all the above analysis
-       - Most important insights that emerged from your analysis
-       - Key takeaways about these emails from the past 3 days
-
+    Analyze this Marketbeat email and provide insights on:
+    - Main themes and topics
+    - Overall sentiment
+    - Key promotions or offers
+    - Notable patterns or strategies
+    
     Email data: {json.dumps(email_data, indent=2)}
     """
     
@@ -1061,12 +1039,19 @@ def analyze_emails_with_llm(emails):
                 {"role": "user", "content": prompt}
             ],
             temperature=1.0,  # Recommended for data analysis
-            stream=False
+            stream=stream  # Enable streaming if requested
         )
         
+        # If streaming is enabled, return the streaming response object
+        if stream:
+            return response
+        
+        # Otherwise, handle as before
         result = response.choices[0].message.content
         
-        # Cache the result
+        # Cache the result (only for non-streaming)
+        conn = get_db_connection()
+        cur = conn.cursor()
         cur.execute(
             "INSERT INTO cache (key, value, created_at) VALUES (%s, %s, NOW()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, created_at = NOW()",
             (cache_key, json.dumps(result))
@@ -1077,8 +1062,9 @@ def analyze_emails_with_llm(emails):
         
         return result
     except Exception as e:
-        cur.close()
-        conn.close()
+        if not stream:  # Only close connection if not streaming
+            cur.close()
+            conn.close()
         return f"Error calling DeepSeek API: {str(e)}"
 
 @app.route('/email-insights')
@@ -1090,8 +1076,8 @@ def email_insights():
 def analyze_emails():
     """API endpoint to analyze emails with LLM."""
     try:
-        # Get emails from the past 3 days for Marketbeat (source_id=2)
-        emails = get_recent_emails(days=3, source_id=2)
+        # Get only the most recent email from Marketbeat (source_id=2)
+        emails = get_recent_emails(days=3, source_id=2, limit=1)
         
         if not emails:
             return jsonify({"error": "No Marketbeat emails found in the past 3 days"}), 404
@@ -1100,6 +1086,32 @@ def analyze_emails():
         analysis = analyze_emails_with_llm(emails)
         
         return jsonify({"analysis": analysis, "email_count": len(emails)})
+    
+    except Exception as e:
+        print(f"Error analyzing emails: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/analyze-emails-stream', methods=['POST'])
+def analyze_emails_stream():
+    """Streaming API endpoint to analyze emails with LLM."""
+    try:
+        # Get only the most recent email from Marketbeat (source_id=2)
+        emails = get_recent_emails(days=3, source_id=2, limit=1)
+        
+        if not emails:
+            return jsonify({"error": "No Marketbeat emails found in the past 3 days"}), 404
+        
+        # Get streaming response
+        streaming_response = analyze_emails_with_llm(emails, stream=True)
+        
+        # Set up SSE streaming
+        def generate():
+            for chunk in streaming_response:
+                if chunk.choices[0].delta.content:
+                    yield f"data: {json.dumps({'content': chunk.choices[0].delta.content})}\n\n"
+            yield f"data: {json.dumps({'done': True})}\n\n"
+        
+        return Response(generate(), mimetype='text/event-stream')
     
     except Exception as e:
         print(f"Error analyzing emails: {str(e)}")
