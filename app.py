@@ -349,7 +349,7 @@ def home():
             ORDER BY day
         """)
         
-        email_timeline = cur.fetchall()
+        email_sequences = cur.fetchall()
         
         # Get average spam score
         cur.execute("SELECT AVG(spam_score) FROM emails WHERE spam_score IS NOT NULL")
@@ -363,7 +363,7 @@ def home():
         labels = []
         values = []
         
-        for row in email_timeline:
+        for row in email_sequences:
             # Convert datetime objects to strings to ensure JSON serializability
             if row['day']:
                 formatted_date = row['day'].strftime('%b %d')

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mailfoxes - Timelines</title>
+    <title>Mailfoxes - Sequences</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
      <style>
         * {
@@ -426,7 +426,7 @@
         <div class="nav-actions">
             <a href="/" class="nav-link">Home</a>
             <a href="/inbox" class="nav-link">Inbox</a>
-            <a href="/emails/view" class="nav-link active">Timelines</a>
+            <a href="/emails/view" class="nav-link active">Sequences</a>
         </div>
     </nav>
     
@@ -531,7 +531,8 @@
         document.querySelectorAll('.email-card').forEach(function(card) {
             card.classList.remove('active');
         });
-        document.querySelector('.email-card[onclick="showPreview(' + emailId + ')"]').classList.add('active');
+        var selector = '.email-card[onclick="showPreview(' + emailId + ')"]';
+        document.querySelector(selector).classList.add('active');
         
         fetch('/emails/view/' + emailId, {
             headers: {
