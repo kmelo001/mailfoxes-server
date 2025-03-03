@@ -1,12 +1,12 @@
 # Update Display Name Script
 
-This repository contains scripts to update the display name of "Exc - Auto" to "Stansberry Research - Free" in the mailfoxes-server database.
+This repository contains scripts to update the display name of "Exct- Auto" to "Stansberry Research - Free" in the mailfoxes-server database.
 
 ## Background
 
-The mailfoxes-server automatically creates display names for new email sources. When emails come from unknown sources, it creates a display name based on the domain name with " - Auto" appended. For example, emails from "exc.something" would get a display name of "Exc - Auto".
+The mailfoxes-server automatically creates display names for new email sources. When emails come from unknown sources, it creates a display name based on the domain name with " - Auto" appended. For example, emails from "exct.something" would get a display name of "Exct- Auto".
 
-This script updates any email sources with "Exc" in the display name to use "Stansberry Research - Free" instead.
+This script updates any email sources with "Exct-" in the display name to use "Stansberry Research - Free" instead.
 
 ## Deployment Instructions
 
@@ -43,7 +43,7 @@ If you have access to the production database from your local machine:
 After running the script, you can verify the changes by:
 
 1. Visiting https://mailfoxes-server.onrender.com/inbox
-2. Checking that "Exc - Auto" is now displayed as "Stansberry Research - Free"
+2. Checking that "Exct- Auto" is now displayed as "Stansberry Research - Free"
 3. Also verify on https://mailfoxes-server.onrender.com/emails/view
 
 ## Troubleshooting

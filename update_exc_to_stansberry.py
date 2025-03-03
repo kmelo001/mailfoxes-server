@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Script to update the display name of "Exc - Auto" to "Stansberry Research - Free"
+Script to update the display name of "Exct- Auto" to "Stansberry Research - Free"
 This script is designed to be run on the server where the app is deployed.
 """
 import os
@@ -20,13 +20,13 @@ try:
     conn = psycopg2.connect(database_url)
     cur = conn.cursor()
     
-    # Find email sources with "Exc" in the display name
-    print("Searching for email sources with 'Exc' in the display name...")
-    cur.execute("SELECT id, name, email_address, display_name FROM email_sources WHERE display_name LIKE '%Exc%'")
+    # Find email sources with "Exct-" in the display name
+    print("Searching for email sources with 'Exct-' in the display name...")
+    cur.execute("SELECT id, name, email_address, display_name FROM email_sources WHERE display_name LIKE '%Exct-%'")
     sources = cur.fetchall()
     
     if not sources:
-        print("No email sources found with 'Exc' in the display name.")
+        print("No email sources found with 'Exct-' in the display name.")
         cur.close()
         conn.close()
         exit(0)

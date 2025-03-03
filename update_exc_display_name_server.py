@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Script to update the display name of "Exc - Auto" to "Stansberry Research - Free"
+Script to update the display name of "Exct- Auto" to "Stansberry Research - Free"
 This script is designed to be run on the server where the app is deployed.
 """
 import os
@@ -13,14 +13,14 @@ def update_display_name():
         conn = get_db_connection()
         cur = conn.cursor()
         
-        print("Searching for email sources with display name 'Exc - Auto'...")
-        # Find the email source with display name "Exc - Auto"
-        cur.execute("SELECT id, name, email_address FROM email_sources WHERE display_name = 'Exc - Auto'")
+        print("Searching for email sources with display name 'Exct- Auto'...")
+        # Find the email source with display name "Exct- Auto"
+        cur.execute("SELECT id, name, email_address FROM email_sources WHERE display_name = 'Exct- Auto'")
         sources = cur.fetchall()
         print(f"Found {len(sources)} matching sources")
         
         if not sources:
-            print("No email sources found with display name 'Exc - Auto'")
+            print("No email sources found with display name 'Exct- Auto'")
             cur.close()
             conn.close()
             return
@@ -31,7 +31,7 @@ def update_display_name():
             name = source[1]       # name is the second column
             email = source[2]      # email_address is the third column
             
-            print(f"Updating source ID {source_id} ({name}, {email}) from 'Exc - Auto' to 'Stansberry Research - Free'")
+            print(f"Updating source ID {source_id} ({name}, {email}) from 'Exct- Auto' to 'Stansberry Research - Free'")
             
             cur.execute(
                 "UPDATE email_sources SET display_name = %s WHERE id = %s",

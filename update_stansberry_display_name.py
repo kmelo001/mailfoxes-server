@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Script to update the display name of "Exc - Auto" to "Stansberry Research - Free"
+Script to update the display name of "Exct- Auto" to "Stansberry Research - Free"
 This script is designed to be run on the server where the app is deployed.
 """
 import os
@@ -24,16 +24,16 @@ def update_display_name():
         conn = get_db_connection()
         cur = conn.cursor(cursor_factory=DictCursor)
         
-        # Look for any sources that might match "Exc - Auto" with different case variations
-        # or sources that have "exc" in their name or email address
+        # Look for any sources that might match "Exct- Auto" with different case variations
+        # or sources that have "exct" in their name or email address
         print("Searching for email sources that might be Stansberry Research...")
         cur.execute("""
             SELECT id, name, email_address, display_name 
             FROM email_sources 
             WHERE 
-                display_name ILIKE 'Exc%Auto' OR
-                name ILIKE 'exc%' OR
-                email_address ILIKE '%exc%' OR
+                display_name ILIKE 'Exct%Auto' OR
+                name ILIKE 'exct%' OR
+                email_address ILIKE '%exct%' OR
                 email_address ILIKE '%stansberry%'
         """)
         sources = cur.fetchall()
