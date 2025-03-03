@@ -365,6 +365,22 @@
             </div>
             <canvas id="emailsChart" class="chart-canvas"></canvas>
         </div>
+        
+        <div class="chart-container" style="position: relative;">
+            <div class="chart-header">
+                <div class="chart-title">
+                    <i class="fas fa-calendar-week"></i>
+                    Email Frequency by Day-Of-Week
+                </div>
+            </div>
+            <canvas id="dayOfWeekChart" class="chart-canvas"></canvas>
+            
+            <!-- Most Popular Day Highlight -->
+            <div style="position: absolute; top: 70px; right: 20px; background-color: #4285f4; color: white; padding: 20px; border-radius: 8px; width: 250px; text-align: center; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                <h3 style="margin: 0 0 15px 0; font-size: 1.2rem;">Most Popular Day</h3>
+                <div style="font-size: 1.8rem; font-weight: 600; text-transform: uppercase;">{{ most_popular_day }}</div>
+            </div>
+        </div>
     </div>
     
     <script>
@@ -434,6 +450,106 @@
                             },
                             label: function(context) {
                                 return `${context.parsed.y} emails received`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Initialize the day of week chart
+        const dowCtx = document.getElementById('dayOfWeekChart').getContext('2d');
+        
+        // Parse the day of week data
+        const dowLabels = JSON.parse('{{ dow_labels_json|safe }}');
+        const dowValues = JSON.parse('{{ dow_values_json|safe }}');
+        
+        // Find the most popular day index for highlighting
+        const maxValue = Math.max(...dowValues);
+        const maxIndex = dowValues.indexOf(maxValue);
+        
+        // Create background colors array with highlight for the most popular day
+        const backgroundColors = dowLabels.map((_, index) => 
+            index === maxIndex ? 'rgba(66, 133, 244, 0.8)' : 'rgba(0, 102, 204, 0.7)'
+        );
+        
+        const borderColors = dowLabels.map((_, index) => 
+            index === maxIndex ? 'rgba(66, 133, 244, 1)' : 'rgba(0, 102, 204, 1)'
+        );
+        
+        const dayOfWeekChart = new Chart(dowCtx, {
+            type: 'line',
+            data: {
+                labels: dowLabels,
+                datasets: [{
+                    label: 'Emails Sent',
+                    data: dowValues,
+                    backgroundColor: backgroundColors,
+                    borderColor: '#4285f4',
+                    borderWidth: 3,
+                    tension: 0.3,
+                    fill: false,
+                    pointBackgroundColor: backgroundColors,
+                    pointBorderColor: borderColors,
+                    pointRadius: 6,
+                    pointHoverRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: {
+                    padding: {
+                        right: 280, // Make room for the "Most Popular Day" box
+                        bottom: 30
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            font: {
+                                size: 12,
+                                weight: 'bold'
+                            },
+                            padding: 10
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        },
+                        title: {
+                            display: true,
+                            text: 'Emails Sent',
+                            font: {
+                                size: 14
+                            },
+                            padding: 10
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                        titleColor: '#1d1d1f',
+                        bodyColor: '#1d1d1f',
+                        borderColor: '#e5e5e5',
+                        borderWidth: 1,
+                        padding: 10,
+                        displayColors: false,
+                        callbacks: {
+                            title: function(tooltipItems) {
+                                return tooltipItems[0].label;
+                            },
+                            label: function(context) {
+                                return `${context.parsed.y} emails sent`;
                             }
                         }
                     }

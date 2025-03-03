@@ -355,6 +355,18 @@ def home():
         cur.execute("SELECT AVG(spam_score) FROM emails WHERE spam_score IS NOT NULL")
         avg_spam_score = cur.fetchone()[0] or 0
         
+        # Get email frequency by day of week
+        cur.execute("""
+            SELECT 
+                EXTRACT(DOW FROM received_at) AS day_of_week,
+                COUNT(*) AS email_count
+            FROM emails
+            GROUP BY day_of_week
+            ORDER BY day_of_week
+        """)
+        
+        day_of_week_data = cur.fetchall()
+        
         # Close connection
         cur.close()
         conn.close()
@@ -380,6 +392,32 @@ def home():
         labels_json = json.dumps(labels)
         values_json = json.dumps(values)
         
+        # Process day of week data
+        day_names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+        dow_labels = []
+        dow_values = []
+        
+        # Initialize with zeros for all days
+        day_counts = {i: 0 for i in range(7)}
+        
+        # Fill in actual counts
+        for row in day_of_week_data:
+            day_index = int(row['day_of_week'])
+            day_counts[day_index] = int(row['email_count'])
+        
+        # Find the most popular day
+        most_popular_day_index = max(day_counts, key=day_counts.get)
+        most_popular_day = day_names[most_popular_day_index]
+        
+        # Create ordered lists for the chart
+        for i in range(7):
+            dow_labels.append(day_names[i])
+            dow_values.append(day_counts[i])
+        
+        # Pre-serialize the day of week data
+        dow_labels_json = json.dumps(dow_labels)
+        dow_values_json = json.dumps(dow_values)
+        
         # Ensure avg_spam_score is a simple float
         avg_spam_score = float(round(avg_spam_score, 2)) if avg_spam_score is not None else 0.0
         
@@ -388,7 +426,10 @@ def home():
                              source_count=int(source_count) if source_count is not None else 0,
                              avg_spam_score=avg_spam_score,
                              labels_json=labels_json,
-                             values_json=values_json)
+                             values_json=values_json,
+                             dow_labels_json=dow_labels_json,
+                             dow_values_json=dow_values_json,
+                             most_popular_day=most_popular_day)
                              
     except Exception as e:
         print(f"Error: {str(e)}")
