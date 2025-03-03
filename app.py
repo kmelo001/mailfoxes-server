@@ -113,6 +113,15 @@ def init_db():
         ON emails(source_id, received_at DESC);
     ''')
     
+    # Create cache table for LLM responses
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS cache (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    ''')
+    
     # Check if display_name column exists
     cur.execute("""
         SELECT EXISTS (
@@ -882,6 +891,129 @@ def view_single_email(email_id):
     except Exception as e:
         print(f"Error: {str(e)}")
         return str(e), 500
+
+def get_recent_emails(days=7):
+    """Get emails from the past X days."""
+    conn = get_db_connection()
+    cur = conn.cursor(cursor_factory=DictCursor)
+    
+    cur.execute("""
+        SELECT e.*, s.name as source_name, s.display_name 
+        FROM emails e
+        LEFT JOIN email_sources s ON e.source_id = s.id
+        WHERE e.received_at >= NOW() - INTERVAL '%s days'
+        ORDER BY e.received_at DESC
+    """, (days,))
+    
+    emails = [dict(email) for email in cur.fetchall()]
+    cur.close()
+    conn.close()
+    
+    return emails
+
+def analyze_emails_with_llm(emails):
+    """Analyze emails using DeepSeek LLM."""
+    from openai import OpenAI
+    import json
+    from datetime import datetime
+    import hashlib
+    
+    # Create a cache key based on the time range
+    oldest = min([email['received_at'] for email in emails], default=datetime.now())
+    newest = max([email['received_at'] for email in emails], default=datetime.now())
+    cache_key = f"email_analysis_{oldest.strftime('%Y%m%d')}_{newest.strftime('%Y%m%d')}"
+    cache_key = hashlib.md5(cache_key.encode()).hexdigest()
+    
+    # Check if we have a cached result
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT value FROM cache WHERE key = %s AND created_at > NOW() - INTERVAL '1 day'", (cache_key,))
+    cached = cur.fetchone()
+    
+    if cached:
+        cur.close()
+        conn.close()
+        return json.loads(cached[0])
+    
+    # Prepare email data for the LLM
+    email_data = []
+    for email in emails:
+        email_data.append({
+            'from': email['from_address'],
+            'subject': email['subject'],
+            'date': email['received_at'].strftime('%Y-%m-%d %H:%M:%S'),
+            'source': email.get('display_name') or email.get('source_name'),
+            'text': email['body_text'] if email['body_text'] else "No text content"
+        })
+    
+    # Create a prompt for the LLM
+    prompt = f"""
+    Analyze the following {len(emails)} emails from the past 7 days and provide a comprehensive summary.
+    
+    Focus on:
+    1. Main themes and topics discussed
+    2. Overall sentiment (positive, negative, neutral)
+    3. Key promotions or offers mentioned
+    4. Recurring patterns or trends
+    5. Notable insights or important information
+    
+    Email data: {json.dumps(email_data, indent=2)}
+    
+    Provide a well-structured analysis that captures the most important aspects of these emails.
+    """
+    
+    # Call the DeepSeek API
+    client = OpenAI(
+        api_key="sk-c68a67e660b74167886f051b790ca6fd",
+        base_url="https://api.deepseek.com"
+    )
+    
+    response = client.chat.completions.create(
+        model="deepseek-reasoner",
+        messages=[
+            {"role": "system", "content": "You are an expert email analyst. Your task is to analyze a collection of emails and provide insightful summaries and patterns."},
+            {"role": "user", "content": prompt}
+        ],
+        temperature=1.0,  # Recommended for data analysis
+        stream=False
+    )
+    
+    result = response.choices[0].message.content
+    
+    # Cache the result
+    cur.execute(
+        "INSERT INTO cache (key, value, created_at) VALUES (%s, %s, NOW()) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, created_at = NOW()",
+        (cache_key, json.dumps(result))
+    )
+    conn.commit()
+    cur.close()
+    conn.close()
+    
+    return result
+
+@app.route('/email-insights')
+def email_insights():
+    """Render the email insights page."""
+    return render_template('email_insights.html')
+
+@app.route('/api/analyze-emails', methods=['POST'])
+def analyze_emails():
+    """API endpoint to analyze emails with LLM."""
+    try:
+        # Get emails from the past 7 days
+        emails = get_recent_emails(days=7)
+        
+        if not emails:
+            return jsonify({"error": "No emails found in the past 7 days"}), 404
+        
+        # Analyze emails with LLM
+        analysis = analyze_emails_with_llm(emails)
+        
+        return jsonify({"analysis": analysis, "email_count": len(emails)})
+    
+    except Exception as e:
+        print(f"Error analyzing emails: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 # Initialize the database when the app starts
 init_db()

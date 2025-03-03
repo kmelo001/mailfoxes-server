@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Mailfoxes - Email Insights</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        body {
+            background-color: white;
+            color: #1d1d1f;
+        }
+        
+        .navbar {
+            background-color: #000000;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #333;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+            z-index: 1000;
+        }
+        
+        .nav-brand {
+            font-size: 1.3rem;
+            font-weight: 500;
+            color: white;
+            letter-spacing: -0.02em;
+            display: flex;
+            align-items: center;
+        }
+        
+        .nav-brand i {
+            margin-right: 10px;
+            color: #0066cc;
+        }
+        
+        .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .nav-link {
+            color: white;
+            text-decoration: none;
+            font-size: 0.9rem;
+            padding: 0.5rem 0.8rem;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+        
+        .nav-link:hover {
+            background-color: #333;
+        }
+        
+        .nav-link.active {
+            font-weight: 500;
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+        
+        .page-title {
+            font-size: 2rem;
+            font-weight: 600;
+            color: #1d1d1f;
+        }
+        
+        .search-container {
+            max-width: 900px;
+            margin: 2rem auto;
+            text-align: center;
+        }
+        
+        .search-container h2 {
+            font-size: 1.5rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: #1d1d1f;
+        }
+        
+        .search-container p {
+            font-size: 1rem;
+            color: #6e6e73;
+            margin-bottom: 1.5rem;
+        }
+        
+        .search-bar-container {
+            position: relative;
+            margin-bottom: 1rem;
+        }
+        
+        .search-bar {
+            width: 100%;
+            padding: 1rem 1.5rem;
+            border-radius: 30px;
+            border: 1px solid #d2d2d7;
+            font-size: 1.1rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            background-color: white;
+        }
+        
+        .search-button {
+            margin-top: 1rem;
+            padding: 0.8rem 2rem;
+            background-color: #0066cc;
+            color: white;
+            border: none;
+            border-radius: 30px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .search-button:hover {
+            background-color: #0055aa;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 2rem 0;
+        }
+        
+        .loading i {
+            font-size: 2rem;
+            color: #0066cc;
+            animation: spin 1s linear infinite;
+        }
+        
+        .loading p {
+            margin-top: 1rem;
+            font-size: 1rem;
+            color: #6e6e73;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .results-container {
+            max-width: 900px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: none;
+        }
+        
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e5e5e5;
+        }
+        
+        .results-header h2 {
+            font-size: 1.5rem;
+            font-weight: 500;
+            color: #1d1d1f;
+        }
+        
+        #email-count {
+            font-size: 0.9rem;
+            color: #6e6e73;
+        }
+        
+        .analysis-content {
+            white-space: pre-line;
+            line-height: 1.6;
+            font-size: 1rem;
+            color: #1d1d1f;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <a href="https://mailfoxes-server.onrender.com/" style="text-decoration: none;">
+            <div class="nav-brand">
+                <i class="fas fa-envelope"></i>
+                Mailfoxes
+            </div>
+        </a>
+        <div class="nav-actions">
+            <a href="/" class="nav-link">Home</a>
+            <a href="/inbox" class="nav-link">Inbox</a>
+            <a href="/emails/view" class="nav-link">Sequences</a>
+            <a href="/email-insights" class="nav-link active">Insights</a>
+            <a href="https://funnel-scanner.onrender.com/" class="nav-link">Frontends Live</a>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <div class="page-header">
+            <h1 class="page-title">Email Insights</h1>
+        </div>
+        
+        <div class="search-container">
+            <h2>Analyze emails from the past 7 days</h2>
+            <p>Get insights on themes, topics, sentiment, and promotions</p>
+            <div class="search-bar-container">
+                <input type="text" class="search-bar" placeholder="What can I help with?" readonly>
+                <button id="analyze-button" class="search-button">
+                    <i class="fas fa-search"></i> Analyze Emails
+                </button>
+            </div>
+        </div>
+        
+        <div class="loading" id="loading">
+            <i class="fas fa-spinner"></i>
+            <p>Analyzing emails... This may take a moment.</p>
+        </div>
+        
+        <div class="results-container" id="results-container">
+            <div class="results-header">
+                <h2>Analysis Results</h2>
+                <p id="email-count"></p>
+            </div>
+            <div class="analysis-content" id="analysis-content"></div>
+        </div>
+    </div>
+    
+    <script>
+        document.getElementById('analyze-button').addEventListener('click', function() {
+            // Show loading indicator
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('results-container').style.display = 'none';
+            
+            // Call the API
+            fetch('/api/analyze-emails', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Hide loading indicator
+                document.getElementById('loading').style.display = 'none';
+                
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    return;
+                }
+                
+                // Show results
+                document.getElementById('results-container').style.display = 'block';
+                document.getElementById('email-count').textContent = `Analyzed ${data.email_count} emails from the past 7 days`;
+                document.getElementById('analysis-content').textContent = data.analysis;
+            })
+            .catch(error => {
+                document.getElementById('loading').style.display = 'none';
+                alert('Error: ' + error);
+            });
+        });
+    </script>
+</body>
+</html>
