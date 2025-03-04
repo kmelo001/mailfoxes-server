@@ -5,6 +5,8 @@
     <title>Mailfoxes - Email Analytics Dashboard</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-cloud@1.2.5/build/d3.layout.cloud.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -382,9 +384,82 @@
                 <div style="font-size: 1.8rem; font-weight: 600; margin-top: 0.5rem; text-transform: uppercase;">{{ most_popular_day }}</div>
             </div>
         </div>
+        
+        <!-- Word Cloud Container -->
+        <div class="chart-container">
+            <div class="chart-header">
+                <div class="chart-title">
+                    <i class="fas fa-cloud"></i>
+                    Popular Words (Last 7 Days)
+                </div>
+                <div class="tracked-count">Based on {{ total_emails }} emails</div>
+            </div>
+            <div id="wordCloudContainer" class="chart-canvas" style="height: 400px;"></div>
+        </div>
     </div>
     
     <script>
+        // Word Cloud Visualization
+        document.addEventListener('DOMContentLoaded', function() {
+            // Parse the word cloud data
+            const wordCloudData = JSON.parse('{{ word_cloud_json|safe }}');
+            
+            // Set up dimensions
+            const width = document.getElementById('wordCloudContainer').offsetWidth;
+            const height = 400;
+            
+            // Color scale for words
+            const colorScale = d3.scaleOrdinal()
+                .range(["#0066cc", "#4285f4", "#5e97f6", "#7baaf7", "#a1c2fa", "#c6dafc"]);
+            
+            // Create the layout
+            const layout = d3.layout.cloud()
+                .size([width, height])
+                .words(wordCloudData)
+                .padding(5)
+                .rotate(() => ~~(Math.random() * 2) * 90)
+                .fontSize(d => Math.sqrt(d.value) * 5 + 10)
+                .on("end", draw);
+            
+            // Start the layout
+            layout.start();
+            
+            // Function to draw the word cloud
+            function draw(words) {
+                // Clear any existing SVG
+                d3.select("#wordCloudContainer").html("");
+                
+                // Create SVG
+                const svg = d3.select("#wordCloudContainer").append("svg")
+                    .attr("width", width)
+                    .attr("height", height)
+                    .append("g")
+                    .attr("transform", `translate(${width/2},${height/2})`);
+                
+                // Add words
+                svg.selectAll("text")
+                    .data(words)
+                    .enter().append("text")
+                    .style("font-size", d => `${d.size}px`)
+                    .style("font-family", "Arial, sans-serif")
+                    .style("font-weight", d => d.value > 10 ? "bold" : "normal")
+                    .style("fill", (d, i) => colorScale(i % 6))
+                    .attr("text-anchor", "middle")
+                    .attr("transform", d => `translate(${d.x},${d.y}) rotate(${d.rotate})`)
+                    .text(d => d.text)
+                    .append("title")  // Tooltip
+                    .text(d => `${d.text}: ${d.value} occurrences`);
+            }
+            
+            // Handle window resize
+            window.addEventListener('resize', function() {
+                if (wordCloudData.length > 0) {
+                    const newWidth = document.getElementById('wordCloudContainer').offsetWidth;
+                    layout.size([newWidth, height]).start();
+                }
+            });
+        });
+        
         // Initialize the emails chart
         const ctx = document.getElementById('emailsChart').getContext('2d');
         

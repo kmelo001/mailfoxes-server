@@ -333,6 +333,55 @@ def process_email_data(email_dict):
     
     return email_dict
 
+def process_text_for_word_cloud(text):
+    """Process text to extract words for word cloud, removing common stop words."""
+    if not text:
+        return []
+    
+    # Convert to lowercase
+    text = text.lower()
+    
+    # Remove common punctuation
+    for char in '.,;:!?()[]{}"\'':
+        text = text.replace(char, ' ')
+    
+    # Split into words
+    words = text.split()
+    
+    # Common English stop words to exclude
+    stop_words = {
+        'a', 'an', 'the', 'and', 'or', 'but', 'if', 'because', 'as', 'what',
+        'which', 'this', 'that', 'these', 'those', 'then', 'just', 'so', 'than',
+        'such', 'both', 'through', 'about', 'for', 'is', 'of', 'while', 'during',
+        'to', 'from', 'in', 'on', 'at', 'by', 'with', 'about', 'against', 'between',
+        'into', 'through', 'during', 'before', 'after', 'above', 'below', 'up',
+        'down', 'out', 'off', 'over', 'under', 'again', 'further', 'then', 'once',
+        'here', 'there', 'when', 'where', 'why', 'how', 'all', 'any', 'both',
+        'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor',
+        'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 's', 't',
+        'can', 'will', 'don', 'should', 'now', 'i', 'me', 'my', 'myself', 'we',
+        'our', 'ours', 'ourselves', 'you', 'your', 'yours', 'yourself',
+        'yourselves', 'he', 'him', 'his', 'himself', 'she', 'her', 'hers',
+        'herself', 'it', 'its', 'itself', 'they', 'them', 'their', 'theirs',
+        'themselves', 'am', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+        'have', 'has', 'had', 'having', 'do', 'does', 'did', 'doing', 'would',
+        'should', 'could', 'ought', 'i\'m', 'you\'re', 'he\'s', 'she\'s', 'it\'s',
+        'we\'re', 'they\'re', 'i\'ve', 'you\'ve', 'we\'ve', 'they\'ve', 'i\'d',
+        'you\'d', 'he\'d', 'she\'d', 'we\'d', 'they\'d', 'i\'ll', 'you\'ll',
+        'he\'ll', 'she\'ll', 'we\'ll', 'they\'ll', 'isn\'t', 'aren\'t', 'wasn\'t',
+        'weren\'t', 'hasn\'t', 'haven\'t', 'hadn\'t', 'doesn\'t', 'don\'t',
+        'didn\'t', 'won\'t', 'wouldn\'t', 'shan\'t', 'shouldn\'t', 'can\'t',
+        'cannot', 'couldn\'t', 'mustn\'t', 'let\'s', 'that\'s', 'who\'s', 'what\'s',
+        'here\'s', 'there\'s', 'when\'s', 'where\'s', 'why\'s', 'how\'s', 'email',
+        'emails', 'http', 'https', 'www', 'com', 'html', 'subject', 'body', 'text',
+        'get', 'one', 'also', 'new', 'may', 'like', 'use', 'click', 'view', 'read'
+    }
+    
+    # Filter out stop words and words less than 3 characters
+    filtered_words = [word for word in words if word not in stop_words and len(word) > 2]
+    
+    return filtered_words
+
 @app.route('/')
 def home():
     try:
@@ -375,6 +424,40 @@ def home():
         """)
         
         day_of_week_data = cur.fetchall()
+        
+        # Get emails from the past 7 days for word cloud
+        cur.execute("""
+            SELECT subject, body_text 
+            FROM emails 
+            WHERE received_at >= NOW() - INTERVAL '7 days'
+        """)
+        recent_emails = cur.fetchall()
+        
+        # Process text for word cloud
+        all_words = []
+        for email in recent_emails:
+            # Process subject
+            if email['subject']:
+                all_words.extend(process_text_for_word_cloud(email['subject']))
+            
+            # Process body text
+            if email['body_text']:
+                all_words.extend(process_text_for_word_cloud(email['body_text']))
+        
+        # Count word frequencies
+        word_counts = {}
+        for word in all_words:
+            if word in word_counts:
+                word_counts[word] += 1
+            else:
+                word_counts[word] = 1
+        
+        # Convert to format needed for word cloud
+        # Sort by frequency (descending) and take top 100 words
+        word_cloud_data = [
+            {"text": word, "value": count}
+            for word, count in sorted(word_counts.items(), key=lambda x: x[1], reverse=True)[:100]
+        ]
         
         # Close connection
         cur.close()
@@ -427,6 +510,9 @@ def home():
         dow_labels_json = json.dumps(dow_labels)
         dow_values_json = json.dumps(dow_values)
         
+        # Pre-serialize the word cloud data
+        word_cloud_json = json.dumps(word_cloud_data)
+        
         # Ensure avg_spam_score is a simple float
         avg_spam_score = float(round(avg_spam_score, 2)) if avg_spam_score is not None else 0.0
         
@@ -438,7 +524,8 @@ def home():
                              values_json=values_json,
                              dow_labels_json=dow_labels_json,
                              dow_values_json=dow_values_json,
-                             most_popular_day=most_popular_day)
+                             most_popular_day=most_popular_day,
+                             word_cloud_json=word_cloud_json)
                              
     except Exception as e:
         print(f"Error: {str(e)}")
