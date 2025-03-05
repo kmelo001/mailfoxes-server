@@ -6,6 +6,12 @@ import psycopg2
 from psycopg2.extras import DictCursor
 import json
 from functools import wraps
+import base64
+from io import BytesIO
+from wordcloud import WordCloud, STOPWORDS
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.colors import LinearSegmentedColormap
 
 app = Flask(__name__)
 
@@ -479,6 +485,57 @@ def process_text_for_word_cloud(text):
     
     return filtered_words
 
+def generate_wordcloud(text):
+    """Generate a word cloud image from text and return as base64 encoded string."""
+    # Create a custom colormap similar to the Macbeth example
+    colors = ["#0066cc", "#4285f4", "#5e97f6", "#7baaf7", "#a1c2fa", 
+              "#34a853", "#26c281", "#2ecc71", "#87d37c", 
+              "#f4b400", "#f9bc02", "#f7ca18", "#f4d03f", 
+              "#ea4335", "#e74c3c", "#c0392b", "#d35400", 
+              "#9c27b0", "#8e44ad", "#9b59b6", "#db0a5b"]
+    
+    # Create a custom stopwords set
+    custom_stopwords = set(STOPWORDS)
+    
+    # Add our existing stop words
+    custom_stopwords.update([
+        # Add any additional stopwords here
+        'future', 'issuer', '4nths', 'likely', 'risk'
+    ])
+    
+    # Create the wordcloud object
+    wordcloud = WordCloud(
+        width=1200,
+        height=600,
+        background_color='white',
+        max_words=400,
+        colormap=LinearSegmentedColormap.from_list("custom_colormap", colors, N=len(colors)),
+        stopwords=custom_stopwords,
+        collocations=True,
+        min_font_size=4,
+        max_font_size=150,
+        random_state=42,
+        prefer_horizontal=0.7,  # 70% horizontal, 30% vertical
+        relative_scaling=0.5,   # Balance between word frequency and font size
+        scale=2                 # Higher resolution
+    ).generate(text)
+    
+    # Convert to image
+    plt.figure(figsize=(12, 6), facecolor='white')
+    plt.imshow(wordcloud, interpolation='bilinear')
+    plt.axis("off")
+    plt.tight_layout(pad=0)
+    
+    # Save to BytesIO object
+    img = BytesIO()
+    plt.savefig(img, format='png', dpi=300, bbox_inches='tight', pad_inches=0)
+    plt.close()
+    img.seek(0)
+    
+    # Convert to base64 for embedding in HTML
+    img_b64 = base64.b64encode(img.getvalue()).decode()
+    return img_b64
+
 def remove_footer_content(text):
     """Remove footer content from email text."""
     if not text:
@@ -644,34 +701,22 @@ def home():
         recent_emails = cur.fetchall()
         
         # Process text for word cloud
-        all_words = []
+        all_text = ""
         for email in recent_emails:
             # Process subject (with higher weight)
             if email['subject']:
-                # Add subject words with higher weight (3x)
-                subject_words = process_text_for_word_cloud(email['subject'])
-                all_words.extend(subject_words * 3)  # Add each word 3 times to increase weight
+                # Add subject with higher weight (repeat 3 times)
+                subject_text = remove_footer_content(email['subject'])
+                all_text += " " + subject_text + " " + subject_text + " " + subject_text
             
             # Process body text
             if email['body_text']:
                 # Extract and clean the main content
-                body_words = process_text_for_word_cloud(email['body_text'])
-                all_words.extend(body_words)
+                body_text = remove_footer_content(email['body_text'])
+                all_text += " " + body_text
         
-        # Count word frequencies
-        word_counts = {}
-        for word in all_words:
-            if word in word_counts:
-                word_counts[word] += 1
-            else:
-                word_counts[word] = 1
-        
-        # Convert to format needed for word cloud
-        # Sort by frequency (descending) and take top 100 words
-        word_cloud_data = [
-            {"text": word, "value": count}
-            for word, count in sorted(word_counts.items(), key=lambda x: x[1], reverse=True)[:100]
-        ]
+        # Generate word cloud image
+        wordcloud_img = generate_wordcloud(all_text)
         
         # Close connection
         cur.close()
@@ -724,8 +769,8 @@ def home():
         dow_labels_json = json.dumps(dow_labels)
         dow_values_json = json.dumps(dow_values)
         
-        # Pre-serialize the word cloud data
-        word_cloud_json = json.dumps(word_cloud_data)
+        # No need for JSON data as we're using an image
+        word_cloud_img_b64 = wordcloud_img
         
         # Ensure avg_spam_score is a simple float
         avg_spam_score = float(round(avg_spam_score, 2)) if avg_spam_score is not None else 0.0
@@ -739,7 +784,7 @@ def home():
                              dow_labels_json=dow_labels_json,
                              dow_values_json=dow_values_json,
                              most_popular_day=most_popular_day,
-                             word_cloud_json=word_cloud_json)
+                             word_cloud_img=word_cloud_img_b64)
                              
     except Exception as e:
         print(f"Error: {str(e)}")
