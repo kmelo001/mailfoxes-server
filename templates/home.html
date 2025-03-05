@@ -6,7 +6,6 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/d3-cloud@1.2.5/build/d3.layout.cloud.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -399,64 +398,259 @@
     </div>
     
     <script>
-        // Word Cloud Visualization
+        // True Wordle-style Word Cloud Implementation
         document.addEventListener('DOMContentLoaded', function() {
             // Parse the word cloud data
             const wordCloudData = JSON.parse('{{ word_cloud_json|safe }}');
             
             // Set up dimensions
-            const width = document.getElementById('wordCloudContainer').offsetWidth;
+            const container = document.getElementById('wordCloudContainer');
+            const width = container.offsetWidth;
             const height = 400;
             
-            // Color scale for words
+            // Create canvas element
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            container.appendChild(canvas);
+            
+            const ctx = canvas.getContext('2d');
+            
+            // Color scale for words (using d3 for consistent colors)
             const colorScale = d3.scaleOrdinal()
                 .range(["#0066cc", "#4285f4", "#5e97f6", "#7baaf7", "#a1c2fa", "#c6dafc"]);
             
-            // Create the layout
-            const layout = d3.layout.cloud()
-                .size([width, height])
-                .words(wordCloudData)
-                .padding(5)
-                .rotate(() => ~~(Math.random() * 2) * 90)
-                .fontSize(d => Math.sqrt(d.value) * 5 + 10)
-                .on("end", draw);
+            // Word cloud configuration
+            const config = {
+                fontFamily: 'Arial, sans-serif',
+                fontWeight: 'bold',
+                minFontSize: 10,
+                maxFontSize: 60,
+                spiralResolution: 1, // Lower = more precise but slower
+                spiralLimit: 360 * 5, // Maximum spiral steps
+                centerX: width / 2,
+                centerY: height / 2
+            };
             
-            // Start the layout
-            layout.start();
-            
-            // Function to draw the word cloud
-            function draw(words) {
-                // Clear any existing SVG
-                d3.select("#wordCloudContainer").html("");
+            // Class to represent a word in the cloud
+            class Word {
+                constructor(text, value, index) {
+                    this.text = text;
+                    this.value = value;
+                    this.size = this.calculateFontSize(value);
+                    this.width = 0;
+                    this.height = 0;
+                    this.x = 0;
+                    this.y = 0;
+                    this.rotation = Math.random() < 0.5 ? 0 : 90; // 50% chance of rotation
+                    this.color = colorScale(index % 6);
+                    this.placed = false;
+                }
                 
-                // Create SVG
-                const svg = d3.select("#wordCloudContainer").append("svg")
-                    .attr("width", width)
-                    .attr("height", height)
-                    .append("g")
-                    .attr("transform", `translate(${width/2},${height/2})`);
+                calculateFontSize(value) {
+                    // Scale font size based on word frequency
+                    // Square root scaling gives better distribution
+                    const minVal = 1;
+                    const maxVal = Math.max(...wordCloudData.map(w => w.value));
+                    const scale = (value - minVal) / (maxVal - minVal);
+                    return Math.max(config.minFontSize, Math.sqrt(scale) * (config.maxFontSize - config.minFontSize) + config.minFontSize);
+                }
                 
-                // Add words
-                svg.selectAll("text")
-                    .data(words)
-                    .enter().append("text")
-                    .style("font-size", d => `${d.size}px`)
-                    .style("font-family", "Arial, sans-serif")
-                    .style("font-weight", d => d.value > 10 ? "bold" : "normal")
-                    .style("fill", (d, i) => colorScale(i % 6))
-                    .attr("text-anchor", "middle")
-                    .attr("transform", d => `translate(${d.x},${d.y}) rotate(${d.rotate})`)
-                    .text(d => d.text)
-                    .append("title")  // Tooltip
-                    .text(d => `${d.text}: ${d.value} occurrences`);
+                // Measure text dimensions
+                measure(ctx) {
+                    ctx.save();
+                    ctx.font = `${this.size}px ${config.fontFamily}`;
+                    const metrics = ctx.measureText(this.text);
+                    // Get width and approximate height
+                    this.width = metrics.width;
+                    this.height = this.size * 1.2; // Approximate height based on font size
+                    ctx.restore();
+                    return this;
+                }
+                
+                // Draw the word on canvas
+                draw(ctx) {
+                    if (!this.placed) return;
+                    
+                    ctx.save();
+                    ctx.translate(this.x, this.y);
+                    ctx.rotate(this.rotation * Math.PI / 180);
+                    ctx.font = `${this.size}px ${config.fontFamily}`;
+                    ctx.fillStyle = this.color;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(this.text, 0, 0);
+                    ctx.restore();
+                }
+                
+                // Get bounding box for collision detection
+                getBoundingBox() {
+                    // For rotated text, we need to account for rotation in the bounding box
+                    if (this.rotation === 0) {
+                        return {
+                            left: this.x - this.width / 2,
+                            right: this.x + this.width / 2,
+                            top: this.y - this.height / 2,
+                            bottom: this.y + this.height / 2
+                        };
+                    } else {
+                        // For 90 degree rotation, swap width and height
+                        return {
+                            left: this.x - this.height / 2,
+                            right: this.x + this.height / 2,
+                            top: this.y - this.width / 2,
+                            bottom: this.y + this.width / 2
+                        };
+                    }
+                }
+                
+                // Check if this word collides with another
+                collidesWith(other) {
+                    const box1 = this.getBoundingBox();
+                    const box2 = other.getBoundingBox();
+                    
+                    // Simple bounding box collision detection
+                    return !(
+                        box1.right < box2.left || 
+                        box1.left > box2.right || 
+                        box1.bottom < box2.top || 
+                        box1.top > box2.bottom
+                    );
+                }
             }
+            
+            // Create word objects
+            const words = wordCloudData
+                .slice(0, 100) // Limit to top 100 words
+                .map((d, i) => new Word(d.text, d.value, i))
+                .sort((a, b) => b.value - a.value); // Sort by frequency (descending)
+            
+            // Measure all words
+            words.forEach(word => word.measure(ctx));
+            
+            // Place words using spiral algorithm
+            const placedWords = [];
+            
+            words.forEach(word => {
+                // Start at center
+                word.x = config.centerX;
+                word.y = config.centerY;
+                
+                // Check for collisions
+                let collides = false;
+                for (const placedWord of placedWords) {
+                    if (word.collidesWith(placedWord)) {
+                        collides = true;
+                        break;
+                    }
+                }
+                
+                // If no collision, we're done
+                if (!collides) {
+                    word.placed = true;
+                    placedWords.push(word);
+                    return;
+                }
+                
+                // Otherwise, spiral outward until we find a spot
+                let angle = 0;
+                let radius = 0;
+                const radiusIncrement = 0.5;
+                
+                for (let i = 0; i < config.spiralLimit; i++) {
+                    // Archimedean spiral: r = a + bθ
+                    angle += config.spiralResolution;
+                    radius += radiusIncrement * config.spiralResolution / (2 * Math.PI);
+                    
+                    // Calculate new position
+                    word.x = config.centerX + radius * Math.cos(angle);
+                    word.y = config.centerY + radius * Math.sin(angle);
+                    
+                    // Check if we're still within canvas
+                    const box = word.getBoundingBox();
+                    if (
+                        box.left < 0 || 
+                        box.right > width || 
+                        box.top < 0 || 
+                        box.bottom > height
+                    ) {
+                        continue; // Try next position
+                    }
+                    
+                    // Check for collisions with placed words
+                    collides = false;
+                    for (const placedWord of placedWords) {
+                        if (word.collidesWith(placedWord)) {
+                            collides = true;
+                            break;
+                        }
+                    }
+                    
+                    // If no collision, we found a spot
+                    if (!collides) {
+                        word.placed = true;
+                        placedWords.push(word);
+                        break;
+                    }
+                }
+            });
+            
+            // Draw the word cloud
+            function drawWordCloud() {
+                // Clear canvas
+                ctx.clearRect(0, 0, width, height);
+                
+                // Draw each placed word
+                placedWords.forEach(word => word.draw(ctx));
+                
+                // Add tooltips using mousemove event
+                canvas.addEventListener('mousemove', function(e) {
+                    const rect = canvas.getBoundingClientRect();
+                    const mouseX = e.clientX - rect.left;
+                    const mouseY = e.clientY - rect.top;
+                    
+                    // Check if mouse is over any word
+                    let hoveredWord = null;
+                    for (const word of placedWords) {
+                        const box = word.getBoundingBox();
+                        if (
+                            mouseX >= box.left && 
+                            mouseX <= box.right && 
+                            mouseY >= box.top && 
+                            mouseY <= box.bottom
+                        ) {
+                            hoveredWord = word;
+                            break;
+                        }
+                    }
+                    
+                    // Show tooltip if hovering over a word
+                    if (hoveredWord) {
+                        canvas.title = `${hoveredWord.text}: ${hoveredWord.value} occurrences`;
+                        canvas.style.cursor = 'pointer';
+                    } else {
+                        canvas.title = '';
+                        canvas.style.cursor = 'default';
+                    }
+                });
+            }
+            
+            // Initial draw
+            drawWordCloud();
             
             // Handle window resize
             window.addEventListener('resize', function() {
-                if (wordCloudData.length > 0) {
-                    const newWidth = document.getElementById('wordCloudContainer').offsetWidth;
-                    layout.size([newWidth, height]).start();
-                }
+                const newWidth = container.offsetWidth;
+                canvas.width = newWidth;
+                
+                // Recalculate positions (simplified - just scale positions)
+                const scaleRatio = newWidth / width;
+                placedWords.forEach(word => {
+                    word.x = word.x * scaleRatio;
+                });
+                
+                // Redraw
+                drawWordCloud();
             });
         });
         
