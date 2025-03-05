@@ -334,9 +334,12 @@ def process_email_data(email_dict):
     return email_dict
 
 def process_text_for_word_cloud(text):
-    """Process text to extract words for word cloud, removing common stop words."""
+    """Process text to extract words for word cloud, removing common stop words and footer content."""
     if not text:
         return []
+    
+    # Remove footer content first
+    text = remove_footer_content(text)
     
     # Convert to lowercase
     text = text.lower()
@@ -350,6 +353,7 @@ def process_text_for_word_cloud(text):
     
     # Common English stop words to exclude
     stop_words = {
+        # Basic English stop words
         'a', 'an', 'the', 'and', 'or', 'but', 'if', 'because', 'as', 'what',
         'which', 'this', 'that', 'these', 'those', 'then', 'just', 'so', 'than',
         'such', 'both', 'through', 'about', 'for', 'is', 'of', 'while', 'during',
@@ -372,15 +376,166 @@ def process_text_for_word_cloud(text):
         'weren\'t', 'hasn\'t', 'haven\'t', 'hadn\'t', 'doesn\'t', 'don\'t',
         'didn\'t', 'won\'t', 'wouldn\'t', 'shan\'t', 'shouldn\'t', 'can\'t',
         'cannot', 'couldn\'t', 'mustn\'t', 'let\'s', 'that\'s', 'who\'s', 'what\'s',
-        'here\'s', 'there\'s', 'when\'s', 'where\'s', 'why\'s', 'how\'s', 'email',
-        'emails', 'http', 'https', 'www', 'com', 'html', 'subject', 'body', 'text',
-        'get', 'one', 'also', 'new', 'may', 'like', 'use', 'click', 'view', 'read'
+        'here\'s', 'there\'s', 'when\'s', 'where\'s', 'why\'s', 'how\'s',
+        
+        # Email-specific terms
+        'email', 'emails', 'http', 'https', 'www', 'com', 'html', 'subject', 'body', 'text',
+        'get', 'one', 'also', 'new', 'may', 'like', 'use', 'click', 'view', 'read',
+        
+        # Footer-related terms
+        'privacy', 'policy', 'unsubscribe', 'copyright', 'rights', 'reserved',
+        'terms', 'conditions', 'service', 'contact', 'preferences', 'update',
+        'subscribe', 'subscription', 'manage', 'settings', 'account', 'profile',
+        'address', 'please', 'thank', 'thanks', 'regards', 'sincerely', 'best',
+        'forward', 'sent', 'received', 'message', 'confidential', 'disclaimer',
+        'legal', 'notice', 'company', 'corporation', 'inc', 'llc', 'ltd',
+        
+        # Marketing terms
+        'offer', 'special', 'deal', 'limited', 'time', 'exclusive', 'free',
+        'discount', 'save', 'sale', 'promotion', 'promotional', 'marketing',
+        'advertisement', 'advertise', 'advertising', 'sponsor', 'sponsored',
+        'newsletter', 'subscription', 'subscribe', 'unsubscribe', 'opt',
+        'register', 'registration', 'sign', 'join', 'member', 'membership',
+        
+        # Financial/Investment terms
+        'stock', 'stocks', 'market', 'markets', 'invest', 'investment', 'investor',
+        'trading', 'trader', 'trade', 'buy', 'sell', 'price', 'prices', 'value',
+        'growth', 'return', 'returns', 'profit', 'loss', 'portfolio', 'fund',
+        'funds', 'asset', 'assets', 'wealth', 'financial', 'finance', 'money',
+        'cash', 'dollar', 'dollars', 'cent', 'cents', 'share', 'shares',
+        
+        # Common web/tech terms
+        'browser', 'website', 'site', 'page', 'link', 'click', 'download',
+        'upload', 'file', 'files', 'folder', 'image', 'video', 'audio',
+        'media', 'content', 'data', 'information', 'info', 'user', 'username',
+        'password', 'login', 'logout', 'sign', 'access', 'security', 'secure',
+        
+        # Time-related terms
+        'today', 'tomorrow', 'yesterday', 'week', 'month', 'year', 'day',
+        'morning', 'afternoon', 'evening', 'night', 'date', 'time', 'hour',
+        'minute', 'second', 'monday', 'tuesday', 'wednesday', 'thursday',
+        'friday', 'saturday', 'sunday', 'january', 'february', 'march', 'april',
+        'may', 'june', 'july', 'august', 'september', 'october', 'november',
+        'december'
     }
     
     # Filter out stop words and words less than 3 characters
     filtered_words = [word for word in words if word not in stop_words and len(word) > 2]
     
     return filtered_words
+
+def remove_footer_content(text):
+    """Remove footer content from email text."""
+    if not text:
+        return ""
+    
+    # Common footer indicators
+    footer_indicators = [
+        "unsubscribe",
+        "privacy policy",
+        "terms of service",
+        "terms of use",
+        "copyright",
+        "all rights reserved",
+        "confidentiality notice",
+        "disclaimer",
+        "legal notice",
+        "to stop receiving",
+        "opt out",
+        "email preferences",
+        "manage subscriptions",
+        "view in browser",
+        "view as webpage",
+        "forward this email",
+        "sent to",
+        "you are receiving this email because",
+        "you received this email because",
+        "if you no longer wish",
+        "if you would like to unsubscribe",
+        "to unsubscribe",
+        "to opt-out",
+        "click here to unsubscribe",
+        "best regards",
+        "kind regards",
+        "sincerely",
+        "regards",
+        "thank you",
+        "thanks",
+        "this email was sent by",
+        "this message was sent to",
+        "this email contains",
+        "please do not reply",
+        "please consider",
+        "please note",
+        "please contact",
+        "for more information",
+        "for questions",
+        "for assistance",
+        "for help",
+        "for support",
+        "for customer service",
+        "for customer support",
+        "for technical support",
+        "for technical assistance",
+        "for further information",
+        "for further assistance",
+        "for further help",
+        "for further support",
+        "for further questions",
+        "for further inquiries",
+        "for further details",
+        "for further assistance",
+        "for further help",
+        "for further support",
+        "for further questions",
+        "for further inquiries",
+        "for further details"
+    ]
+    
+    # Check for common footer indicators and truncate text
+    text_lower = text.lower()
+    for indicator in footer_indicators:
+        index = text_lower.find(indicator)
+        if index != -1:
+            # Found a footer indicator, truncate the text
+            return text[:index]
+    
+    # Look for common footer separator patterns
+    separator_patterns = [
+        "\n---",
+        "\n___",
+        "\n***",
+        "\n===",
+        "\n--\n",
+        "\n__\n",
+        "\n**\n",
+        "\n==\n",
+        "\n\n---",
+        "\n\n___",
+        "\n\n***",
+        "\n\n===",
+        "\n\n--\n",
+        "\n\n__\n",
+        "\n\n**\n",
+        "\n\n==\n",
+        "\n\n-----------",
+        "\n\n___________",
+        "\n\n***********",
+        "\n\n===========",
+        "\n-----------",
+        "\n___________",
+        "\n***********",
+        "\n===========",
+    ]
+    
+    for pattern in separator_patterns:
+        index = text.find(pattern)
+        if index != -1:
+            # Found a separator pattern, truncate the text
+            return text[:index]
+    
+    # If no footer indicators or separators found, return the original text
+    return text
 
 @app.route('/')
 def home():
@@ -436,13 +591,17 @@ def home():
         # Process text for word cloud
         all_words = []
         for email in recent_emails:
-            # Process subject
+            # Process subject (with higher weight)
             if email['subject']:
-                all_words.extend(process_text_for_word_cloud(email['subject']))
+                # Add subject words with higher weight (3x)
+                subject_words = process_text_for_word_cloud(email['subject'])
+                all_words.extend(subject_words * 3)  # Add each word 3 times to increase weight
             
             # Process body text
             if email['body_text']:
-                all_words.extend(process_text_for_word_cloud(email['body_text']))
+                # Extract and clean the main content
+                body_words = process_text_for_word_cloud(email['body_text'])
+                all_words.extend(body_words)
         
         # Count word frequencies
         word_counts = {}
