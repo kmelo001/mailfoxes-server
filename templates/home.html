@@ -416,20 +416,27 @@
             
             const ctx = canvas.getContext('2d');
             
-            // Color scale for words (using d3 for consistent colors)
+            // Color scale for words (using d3 for consistent colors with more variety)
             const colorScale = d3.scaleOrdinal()
-                .range(["#0066cc", "#4285f4", "#5e97f6", "#7baaf7", "#a1c2fa", "#c6dafc"]);
+                .range([
+                    "#0066cc", "#4285f4", "#5e97f6", "#7baaf7", "#a1c2fa", 
+                    "#34a853", "#26c281", "#2ecc71", "#87d37c", 
+                    "#f4b400", "#f9bc02", "#f7ca18", "#f4d03f", 
+                    "#ea4335", "#e74c3c", "#c0392b", "#d35400", 
+                    "#9c27b0", "#8e44ad", "#9b59b6", "#db0a5b"
+                ]);
             
             // Word cloud configuration
             const config = {
                 fontFamily: 'Arial, sans-serif',
                 fontWeight: 'bold',
-                minFontSize: 10,
-                maxFontSize: 60,
-                spiralResolution: 1, // Lower = more precise but slower
-                spiralLimit: 360 * 5, // Maximum spiral steps
+                minFontSize: 8,  // Smaller minimum font size
+                maxFontSize: 70, // Larger maximum font size
+                spiralResolution: 0.5, // More precise spiral for better packing
+                spiralLimit: 360 * 10, // Increased spiral steps for more attempts
                 centerX: width / 2,
-                centerY: height / 2
+                centerY: height / 2,
+                padding: 2 // Reduced padding between words
             };
             
             // Class to represent a word in the cloud
@@ -442,18 +449,31 @@
                     this.height = 0;
                     this.x = 0;
                     this.y = 0;
-                    this.rotation = Math.random() < 0.5 ? 0 : 90; // 50% chance of rotation
-                    this.color = colorScale(index % 6);
+                    
+                    // More varied rotations: 0°, 45°, 90°, or -45°
+                    const rotations = [0, 45, 90, -45];
+                    this.rotation = rotations[Math.floor(Math.random() * rotations.length)];
+                    
+                    // Use a wider range of colors
+                    this.color = colorScale(index % colorScale.range().length);
                     this.placed = false;
                 }
                 
                 calculateFontSize(value) {
-                    // Scale font size based on word frequency
-                    // Square root scaling gives better distribution
+                    // Enhanced font size scaling for better distribution
                     const minVal = 1;
                     const maxVal = Math.max(...wordCloudData.map(w => w.value));
-                    const scale = (value - minVal) / (maxVal - minVal);
-                    return Math.max(config.minFontSize, Math.sqrt(scale) * (config.maxFontSize - config.minFontSize) + config.minFontSize);
+                    
+                    // Use logarithmic scaling for better distribution between small and large words
+                    const logMin = Math.log(minVal || 1);
+                    const logMax = Math.log(maxVal);
+                    const scale = (Math.log(value) - logMin) / (logMax - logMin || 1);
+                    
+                    // Apply cubic scaling to emphasize important words even more
+                    return Math.max(
+                        config.minFontSize, 
+                        Math.pow(scale, 0.8) * (config.maxFontSize - config.minFontSize) + config.minFontSize
+                    );
                 }
                 
                 // Measure text dimensions
@@ -487,19 +507,30 @@
                 getBoundingBox() {
                     // For rotated text, we need to account for rotation in the bounding box
                     if (this.rotation === 0) {
+                        // No rotation
                         return {
-                            left: this.x - this.width / 2,
-                            right: this.x + this.width / 2,
-                            top: this.y - this.height / 2,
-                            bottom: this.y + this.height / 2
+                            left: this.x - this.width / 2 - config.padding,
+                            right: this.x + this.width / 2 + config.padding,
+                            top: this.y - this.height / 2 - config.padding,
+                            bottom: this.y + this.height / 2 + config.padding
+                        };
+                    } else if (this.rotation === 90 || this.rotation === -90) {
+                        // 90 degree rotation (vertical)
+                        return {
+                            left: this.x - this.height / 2 - config.padding,
+                            right: this.x + this.height / 2 + config.padding,
+                            top: this.y - this.width / 2 - config.padding,
+                            bottom: this.y + this.width / 2 + config.padding
                         };
                     } else {
-                        // For 90 degree rotation, swap width and height
+                        // Diagonal rotation (45 or -45 degrees)
+                        // For diagonal text, we use a simplified approximation
+                        const diagonal = Math.sqrt(Math.pow(this.width, 2) + Math.pow(this.height, 2)) / 2;
                         return {
-                            left: this.x - this.height / 2,
-                            right: this.x + this.height / 2,
-                            top: this.y - this.width / 2,
-                            bottom: this.y + this.width / 2
+                            left: this.x - diagonal - config.padding,
+                            right: this.x + diagonal + config.padding,
+                            top: this.y - diagonal - config.padding,
+                            bottom: this.y + diagonal + config.padding
                         };
                     }
                 }
@@ -521,7 +552,7 @@
             
             // Create word objects
             const words = wordCloudData
-                .slice(0, 100) // Limit to top 100 words
+                .slice(0, 200) // Limit to top 200 words
                 .map((d, i) => new Word(d.text, d.value, i))
                 .sort((a, b) => b.value - a.value); // Sort by frequency (descending)
             
